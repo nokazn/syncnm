@@ -1,0 +1,36 @@
+default:
+  @just --list
+
+check:
+  just fmt --check
+  just lint
+  just test
+
+fmt check="":
+  if [[ "{{check}}" == "--check" ]]; then \
+    just fmt-rust --check; \
+    just fmt-nix --check; \
+    just fmt-dprint --diff; \
+  else \
+    just fmt-rust; \
+    just fmt-nix; \
+    just fmt-dprint; \
+  fi
+
+fmt-rust *flags:
+  cargo fmt {{flags}}
+
+fmt-nix *flags:
+  find . -type f -iname '*.nix' | xargs nixpkgs-fmt {{flags}}
+
+fmt-dprint *flags:
+  dprint fmt {{flags}}
+
+lint:
+  cargo clippy
+
+test:
+  cargo test --locked --frozen --all-features -- --nocapture
+
+build:
+  cargo build

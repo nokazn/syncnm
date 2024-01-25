@@ -18,8 +18,10 @@
             cargo
             rustc
             rustfmt
-            pre-commit
             rustPackages.clippy
+            pre-commit
+            nixpkgs-fmt
+            just
           ];
           RUST_SRC_PATH = rustPlatform.rustLibSrc;
         };
