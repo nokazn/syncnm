@@ -1,6 +1,7 @@
 mod package_json;
 mod utils;
 
+use crate::utils::hash::Hashable;
 use package_json::PackageJson;
 
 fn main() {

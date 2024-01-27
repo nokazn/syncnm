@@ -1,23 +1,11 @@
-use base64ct::{Base64, Encoding};
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 use std::{collections::BTreeMap, fs, hash::Hash, io, path::Path};
 
-use crate::utils::path::to_absolute_path;
+use crate::utils::{hash::Hashable, path::to_absolute_path};
 
 const PACKAGE_JSON: &str = "package.json";
 
 type Dependencies = BTreeMap<String, String>;
-
-trait ToBytes {
-  fn to_bytes(&self) -> serde_json::Result<Vec<u8>>
-  where
-    Self: serde::Serialize,
-  {
-    let json = serde_json::to_string(self)?;
-    Ok(json.into_bytes())
-  }
-}
 
 #[allow(non_snake_case)]
 #[derive(Serialize, Deserialize, Hash, Debug)]
@@ -91,7 +79,7 @@ pub struct ProjectDependencies {
   pub workspaces: BTreeMap<String, ProjectDependencies>,
 }
 
-impl ToBytes for ProjectDependencies {}
+impl Hashable for ProjectDependencies {}
 
 impl Default for ProjectDependencies {
   fn default() -> Self {
@@ -105,17 +93,5 @@ impl Default for ProjectDependencies {
       },
       workspaces: BTreeMap::<String, ProjectDependencies>::new(),
     }
-  }
-}
-
-impl ProjectDependencies {
-  pub fn generate_hash(&self) -> serde_json::Result<String> {
-    self.to_bytes().map(|bytes| {
-      let mut generator = Sha256::new();
-      generator.update(bytes);
-      let raw_hash = generator.finalize();
-      let hash = Base64::encode_string(&raw_hash);
-      hash
-    })
   }
 }
