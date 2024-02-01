@@ -1,17 +1,22 @@
+mod core;
+mod error;
 mod lockfile;
 mod package_json;
 mod utils;
+mod workspaces;
 
-use crate::utils::hash::Hashable;
-use lockfile::Lockfile;
-use package_json::PackageJson;
+use crate::{lockfile::Lockfile, package_json::ProjectRoot, utils::hash::Hashable};
+use env_logger;
 
 fn main() {
-  // TODO: 後で消す
-  let package_json = PackageJson::new("./examples/package.json").unwrap();
-  let result = package_json.resolve().generate_hash();
-  dbg!(&result.unwrap());
+  env_logger::init();
+
   let lockfile = Lockfile::new("./examples/").unwrap();
   let result = lockfile.generate_hash();
-  dbg!(lockfile, &result.unwrap());
+  dbg!(&lockfile, &result.unwrap());
+
+  // TODO: 後で消す
+  let package_json = ProjectRoot::new("./examples", lockfile.kind).unwrap();
+  let result = package_json.generate_hash();
+  dbg!(&result.unwrap());
 }

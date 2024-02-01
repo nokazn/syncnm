@@ -5,32 +5,12 @@ use std::{
   path::{Path, PathBuf},
 };
 use strum::IntoEnumIterator;
-use strum_macros::EnumIter;
 
-use crate::utils::path::to_absolute_path;
-
-#[derive(EnumIter, Debug)]
-enum LockfileKind {
-  PackageLock,
-  YarnLock,
-  PnpmLock,
-  BunLockb,
-}
-
-impl LockfileKind {
-  pub fn file_names(&self) -> Vec<&str> {
-    match self {
-      LockfileKind::PackageLock => vec!["package-lock.json"],
-      LockfileKind::YarnLock => vec!["yarn.lock"],
-      LockfileKind::PnpmLock => vec!["pnpm-lock.yaml", "pnpm-lock.yml"],
-      LockfileKind::BunLockb => vec!["bun.lockb"],
-    }
-  }
-}
+use crate::{core::PackageManagerKind, utils::path::to_absolute_path};
 
 #[derive(Debug)]
 pub struct Lockfile {
-  kind: LockfileKind,
+  pub kind: PackageManagerKind,
   path: PathBuf,
 }
 
@@ -45,8 +25,8 @@ impl Lockfile {
     }
   }
 
-  fn try_to_read_lockfile<T: AsRef<Path>>(dir_path: T) -> Option<(LockfileKind, PathBuf)> {
-    for kind in LockfileKind::iter() {
+  fn try_to_read_lockfile<T: AsRef<Path>>(dir_path: T) -> Option<(PackageManagerKind, PathBuf)> {
+    for kind in PackageManagerKind::iter() {
       for lockfile in kind.file_names() {
         let file_path = dir_path.as_ref().join(lockfile);
         if file_path.exists() {
