@@ -1,4 +1,3 @@
-use serde::{Deserialize, Serialize};
 use std::{
   collections::BTreeMap,
   fs,
@@ -6,20 +5,31 @@ use std::{
   path::{Path, PathBuf},
 };
 
+use serde::{Deserialize, Serialize};
+
 use crate::{
-  core::PackageManagerKind, error::InvalidPackageJsonForWorkspacesError, utils::hash::Hashable,
-};
-use crate::{
-  error::{Error, IoError, NoEntryError, ParseJsonError},
+  core::PackageManagerKind,
+  errors::{Error, Paths},
+  utils::hash::Hashable,
   workspaces::Workspaces,
 };
-
-const PACKAGE_JSON: &str = "package.json";
 
 type Dependencies = BTreeMap<String, String>;
 
 fn to_package_json_path<T: AsRef<Path>>(base_dir: T) -> PathBuf {
+  const PACKAGE_JSON: &str = "package.json";
   base_dir.as_ref().join(PACKAGE_JSON)
+}
+
+/// Ignore `node_modules` directory
+fn is_valid_base_dir<T: AsRef<Path>>(base_dir: T) -> bool {
+  const IGNORED: [&str; 1] = ["node_modules"];
+  let path = base_dir.as_ref().to_path_buf();
+  if !path.is_dir() {
+    return false;
+  }
+  let path = path.to_string_lossy();
+  !IGNORED.iter().any(|ignored| path.contains(ignored))
 }
 
 ///
@@ -41,10 +51,12 @@ struct PackageJson {
 impl PackageJson {
   fn new<T: AsRef<Path>>(base_dir: T) -> Result<PackageJson, Error> {
     let file_path = to_package_json_path(base_dir);
-    let contents = fs::read_to_string(&file_path)
-      .map_err(|_| Error::NoEntryError(NoEntryError::new(&file_path)))?;
-    serde_json::from_str::<PackageJson>(&contents)
-      .map_err(|_| Error::ParseJsonError(ParseJsonError::new(&file_path)))
+    let contents = fs::read_to_string(&file_path);
+    match contents {
+      Ok(contents) => serde_json::from_str::<Self>(&contents)
+        .map_err(|_| Error::ParseError(Paths::One(file_path))),
+      Err(_) => Err(Error::NoEntryError(Paths::One(file_path))),
+    }
   }
 }
 
@@ -85,10 +97,14 @@ struct WorkspacePackage {
 
 impl WorkspacePackage {
   fn new<T: AsRef<Path>>(base_dir: T, kind: PackageManagerKind) -> Result<Self, Error> {
+    let base_dir = base_dir.as_ref().to_path_buf();
+    if !is_valid_base_dir(&base_dir) {
+      return Err(Error::InvalidWorkspaceError(base_dir));
+    }
     let original = PackageJson::new(&base_dir)?;
     Ok(WorkspacePackage {
       original: original.clone(),
-      base_dir: base_dir.as_ref().to_path_buf(),
+      base_dir,
       kind,
       dependencies: PackageDependencies::new(original),
     })
@@ -100,15 +116,13 @@ impl WorkspacePackage {
       PackageManagerKind::YarnLock
         if self.original.name.is_none() || self.original.version.is_none() =>
       {
-        // TODO: better error message
-        log::warn!(
-          "name and version are required in `{}`",
-          &package_json_path.to_string_lossy()
-        );
-        Err(Error::InvalidPackageJsonForWorkspacesError(
-          InvalidPackageJsonForWorkspacesError::new(&package_json_path),
+        Err(Error::InvalidPackageJsonFieldsForYarnError(
+          package_json_path,
         ))
       }
+      PackageManagerKind::BunLockb if self.original.name.is_none() => Err(
+        Error::InvalidPackageJsonFieldsForBunError(package_json_path),
+      ),
       _ => Ok(self),
     }
   }

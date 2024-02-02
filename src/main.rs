@@ -1,5 +1,5 @@
 mod core;
-mod error;
+mod errors;
 mod lockfile;
 mod package_json;
 mod utils;

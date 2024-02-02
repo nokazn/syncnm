@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
   core::PackageManagerKind,
-  error::{Error, ErrorBase, NoEntryError, ParseJsonError},
+  errors::{Error, Paths},
   utils,
 };
 
@@ -61,7 +61,7 @@ impl PnpmWorkspace {
     let file_paths = Self::to_pnpm_workspace(base_dir);
     let contents = Self::read_to_string(&file_paths)?;
     serde_yaml::from_str::<Self>(&contents)
-      .map_err(|_| Error::ParseJsonError(ParseJsonError::new(&file_paths[0])))
+      .map_err(|_| Error::ParseError(Paths::Multiple(file_paths.to_vec())))
   }
 
   fn to_pnpm_workspace<T: AsRef<Path>>(base_dir: T) -> [PathBuf; 2] {
@@ -76,7 +76,6 @@ impl PnpmWorkspace {
         return Ok(contents);
       }
     }
-    // TODO
-    Err(Error::NoEntryError(NoEntryError::new(&file_paths[0])))
+    Err(Error::NoEntryError(Paths::Multiple(file_paths.to_vec())))
   }
 }
