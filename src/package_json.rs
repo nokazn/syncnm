@@ -49,7 +49,7 @@ struct PackageJson {
 }
 
 impl PackageJson {
-  fn new<T: AsRef<Path>>(base_dir: T) -> Result<PackageJson, Error> {
+  fn new<T: AsRef<Path>>(base_dir: T) -> Result<Self, Error> {
     let file_path = to_package_json_path(base_dir);
     let contents = fs::read_to_string(&file_path);
     match contents {
@@ -74,7 +74,7 @@ struct PackageDependencies {
 
 impl PackageDependencies {
   fn new(raw: PackageJson) -> Self {
-    PackageDependencies {
+    Self {
       dependencies: raw.dependencies.unwrap_or_default(),
       dev_dependencies: raw.devDependencies.unwrap_or_default(),
       peer_dependencies: raw.peerDependencies.unwrap_or_default(),
@@ -102,7 +102,7 @@ impl WorkspacePackage {
       return Err(Error::InvalidWorkspaceError(base_dir));
     }
     let original = PackageJson::new(&base_dir)?;
-    Ok(WorkspacePackage {
+    Ok(Self {
       original: original.clone(),
       base_dir,
       kind,
@@ -182,13 +182,13 @@ impl Hashable for ProjectRoot {
 }
 
 impl ProjectRoot {
-  pub fn new<T: AsRef<Path>>(base_dir: T, kind: PackageManagerKind) -> Result<ProjectRoot, Error> {
+  pub fn new<T: AsRef<Path>>(base_dir: T, kind: PackageManagerKind) -> Result<Self, Error> {
     let original = PackageJson::new(&base_dir)?;
-    Ok(ProjectRoot {
+    Ok(Self {
       original: original.clone(),
       kind,
       root: PackageDependencies::new(original.clone()),
-      workspaces: ProjectRoot::resolve_workspaces(base_dir, kind, original.workspaces),
+      workspaces: Self::resolve_workspaces(base_dir, kind, original.workspaces),
     })
   }
 
@@ -199,8 +199,9 @@ impl ProjectRoot {
   ) -> BTreeMap<String, WorkspacePackage> {
     let workspaces = Workspaces::new(base_dir.as_ref().to_path_buf(), kind, patterns);
     let mut workspace_map = BTreeMap::<String, WorkspacePackage>::new();
-    for p in workspaces.packages.iter() {
-      if let Ok(w) = WorkspacePackage::new(&p, kind).and_then(|w| w.validate_package_json_fields(p))
+    for path in workspaces.packages.iter() {
+      if let Ok(w) =
+        WorkspacePackage::new(&path, kind).and_then(|w| w.validate_package_json_fields(path))
       {
         let (name, fallback) = w.get_package_name();
         if workspace_map.get(&name).is_none() {

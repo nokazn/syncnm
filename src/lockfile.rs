@@ -17,7 +17,7 @@ pub struct Lockfile {
 impl Lockfile {
   pub fn new<T: AsRef<Path>>(dir_path: T) -> Result<Self, String> {
     match Lockfile::try_to_read_lockfile(&dir_path) {
-      Some((kind, path)) => Ok(Lockfile { kind, path }),
+      Some((kind, path)) => Ok(Self { kind, path }),
       None => Err(format!(
         "No lockfile at `{}`",
         to_absolute_path(&dir_path).to_string_lossy()
