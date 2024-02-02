@@ -1,8 +1,15 @@
-use glob::glob;
-use log;
-use std::path::PathBuf;
+use std::{
+  fs,
+  path::{Path, PathBuf},
+};
 
-use crate::core::PackageManagerKind;
+use serde::{Deserialize, Serialize};
+
+use crate::{
+  core::PackageManagerKind,
+  error::{Error, ErrorBase, NoEntryError, ParseJsonError},
+  utils,
+};
 
 #[derive(Debug)]
 pub struct Workspaces {
@@ -12,7 +19,7 @@ pub struct Workspaces {
 
 impl Workspaces {
   pub fn new(base_dir: PathBuf, kind: PackageManagerKind, patterns: Option<Vec<String>>) -> Self {
-    Workspaces {
+    Self {
       kind: kind,
       packages: match &kind {
         PackageManagerKind::PackageLock => Workspaces::resolve_npm_workspaces(base_dir, patterns),
@@ -24,41 +31,52 @@ impl Workspaces {
   }
 
   fn resolve_npm_workspaces(base_dir: PathBuf, patterns: Option<Vec<String>>) -> Vec<PathBuf> {
-    todo!("TODO: resolve npm workspaces");
+    utils::glob::collect(&base_dir, patterns, true)
   }
 
   /// Evaluate the given patterns individually and return the paths of matched entries in case of yarn.
   fn resolve_yarn_workspaces(base_dir: PathBuf, patterns: Option<Vec<String>>) -> Vec<PathBuf> {
-    patterns
-      .unwrap_or_default()
-      .iter()
-      .filter_map(|pattern| {
-        let file_pattern = base_dir.join(pattern);
-        match glob(&file_pattern.to_string_lossy().as_ref()) {
-          Ok(entries) => {
-            let entries = entries.filter_map(|entry| {
-              if let Err(error) = &entry {
-                log::warn!("Cannot access to a file or directory: {:?}", error.path());
-              }
-              entry.ok()
-            });
-            Some(entries)
-          }
-          Err(error) => {
-            log::warn!("Invalid glob pattern: {:?}", error);
-            None
-          }
-        }
-      })
-      .flatten()
-      .collect::<Vec<_>>()
+    utils::glob::collect(&base_dir, patterns, false)
   }
 
   fn resolve_bun_workspaces(base_dir: PathBuf, patterns: Option<Vec<String>>) -> Vec<PathBuf> {
-    todo!("TODO: resolve bun workspaces")
+    utils::glob::collect(&base_dir, patterns, false)
   }
 
   fn resolve_pnpm_workspaces(base_dir: PathBuf) -> Vec<PathBuf> {
-    todo!("TODO: resolve pnpm workspaces")
+    match PnpmWorkspace::new(&base_dir) {
+      Ok(p) => utils::glob::collect(&base_dir, p.packages, false),
+      Err(_) => vec![],
+    }
+  }
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct PnpmWorkspace {
+  packages: Option<Vec<String>>,
+}
+
+impl PnpmWorkspace {
+  fn new(base_dir: &PathBuf) -> Result<Self, Error> {
+    let file_paths = Self::to_pnpm_workspace(base_dir);
+    let contents = Self::read_to_string(&file_paths)?;
+    serde_yaml::from_str::<Self>(&contents)
+      .map_err(|_| Error::ParseJsonError(ParseJsonError::new(&file_paths[0])))
+  }
+
+  fn to_pnpm_workspace<T: AsRef<Path>>(base_dir: T) -> [PathBuf; 2] {
+    const PNPM_WORKSPACE: [&str; 2] = ["pnpm-workspace.yaml", "pnpm-workspace.yml"];
+    let base_dir = base_dir.as_ref().to_path_buf();
+    PNPM_WORKSPACE.map(|p| base_dir.join(p))
+  }
+
+  fn read_to_string(file_paths: &[PathBuf; 2]) -> Result<String, Error> {
+    for file_path in file_paths.iter() {
+      if let Ok(contents) = fs::read_to_string(&file_path) {
+        return Ok(contents);
+      }
+    }
+    // TODO
+    Err(Error::NoEntryError(NoEntryError::new(&file_paths[0])))
   }
 }
