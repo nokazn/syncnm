@@ -68,3 +68,49 @@ fn parse_negate(pattern: String, enable_negate: bool) -> (String, bool) {
   }
   (pattern[counts..].to_string(), negate)
 }
+
+#[cfg(test)]
+mod tests {
+  #[test]
+  fn test_parse_negate() {
+    use super::*;
+    struct TestCase {
+      input: (String, bool),
+      expected: (String, bool),
+    }
+
+    [
+      TestCase {
+        input: (String::from("foo"), true),
+        expected: (String::from("foo"), false),
+      },
+      TestCase {
+        input: (String::from("!foo"), true),
+        expected: (String::from("foo"), true),
+      },
+      TestCase {
+        input: (String::from("!!foo"), true),
+        expected: (String::from("foo"), false),
+      },
+      TestCase {
+        input: (String::from("!!!foo"), true),
+        expected: (String::from("foo"), true),
+      },
+      TestCase {
+        input: (String::from("foo!bar"), true),
+        expected: (String::from("foo!bar"), false),
+      },
+      TestCase {
+        input: (String::from("foo!!!!!!!!!!bar"), true),
+        expected: (String::from("foo!!!!!!!!!!bar"), false),
+      },
+    ]
+    .iter()
+    .for_each(|case| {
+      assert_eq!(
+        parse_negate(case.input.0.clone(), case.input.1),
+        case.expected
+      );
+    });
+  }
+}
