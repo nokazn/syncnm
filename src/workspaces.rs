@@ -45,7 +45,7 @@ impl Workspaces {
 
   fn resolve_pnpm_workspaces(base_dir: PathBuf) -> Vec<PathBuf> {
     match PnpmWorkspace::new(&base_dir) {
-      Ok(p) => utils::glob::collect(&base_dir, p.packages, false),
+      Ok(p) => utils::glob::collect(&base_dir, p.packages, true),
       Err(_) => vec![],
     }
   }

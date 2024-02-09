@@ -1,5 +1,9 @@
 use glob::glob;
+use itertools::Itertools;
+use std::env::set_current_dir;
 use std::path::PathBuf;
+
+use crate::utils::path::to_absolute_path;
 
 const NEGATE: char = '!';
 
@@ -8,22 +12,32 @@ pub fn collect(
   patterns: Option<Vec<String>>,
   enable_negate: bool,
 ) -> Vec<PathBuf> {
-  let mut include = Vec::<PathBuf>::new();
-  let mut exclude = Vec::<PathBuf>::new();
+  let mut entries = Vec::<PathBuf>::new();
   for pattern in patterns.unwrap_or_default() {
     if let (Some(matched), negate) = resolve_glob(&base_dir, pattern, enable_negate) {
       if negate {
-        exclude.extend(matched);
+        entries = entries
+          .iter()
+          .filter_map(|entry| {
+            if matched.iter().any(|p| entry.starts_with(p)) {
+              None
+            } else {
+              Some(entry)
+            }
+          })
+          .cloned()
+          .collect::<Vec<_>>();
       } else {
-        include.extend(matched);
+        entries.extend(matched);
       }
     }
   }
-  include
+  let result = entries
     .iter()
-    .filter(|path| !exclude.contains(path))
-    .cloned()
-    .collect::<Vec<_>>()
+    .unique()
+    .map(to_absolute_path)
+    .collect::<Vec<_>>();
+  result
 }
 
 fn resolve_glob(
@@ -31,9 +45,12 @@ fn resolve_glob(
   pattern: String,
   enable_negate: bool,
 ) -> (Option<Vec<PathBuf>>, bool) {
+  if let Err(error) = set_current_dir(&base_dir) {
+    log::warn!("Cannot access to a directory {:?}: {:?}", base_dir, error);
+    return (None, false);
+  }
   let (pattern, negate) = parse_negate(pattern, enable_negate);
-  let pattern = base_dir.join(pattern);
-  match glob(&pattern.to_string_lossy().as_ref()) {
+  match glob(&pattern) {
     Ok(entries) => {
       let entries = entries
         .filter_map(|entry| {
@@ -71,46 +88,159 @@ fn parse_negate(pattern: String, enable_negate: bool) -> (String, bool) {
 
 #[cfg(test)]
 mod tests {
-  #[test]
-  fn test_parse_negate() {
-    use super::*;
-    struct TestCase {
-      input: (String, bool),
-      expected: (String, bool),
-    }
+  use crate::test_each;
 
-    [
-      TestCase {
-        input: (String::from("foo"), true),
-        expected: (String::from("foo"), false),
-      },
-      TestCase {
-        input: (String::from("!foo"), true),
-        expected: (String::from("foo"), true),
-      },
-      TestCase {
-        input: (String::from("!!foo"), true),
-        expected: (String::from("foo"), false),
-      },
-      TestCase {
-        input: (String::from("!!!foo"), true),
-        expected: (String::from("foo"), true),
-      },
-      TestCase {
-        input: (String::from("foo!bar"), true),
-        expected: (String::from("foo!bar"), false),
-      },
-      TestCase {
-        input: (String::from("foo!!!!!!!!!!bar"), true),
-        expected: (String::from("foo!!!!!!!!!!bar"), false),
-      },
-    ]
-    .iter()
-    .for_each(|case| {
-      assert_eq!(
-        parse_negate(case.input.0.clone(), case.input.1),
-        case.expected
-      );
-    });
+  use super::*;
+  use std::fs::File;
+  use std::path::PathBuf;
+  use std::{fs, vec};
+  use tempfile::TempDir;
+
+  struct CollectTestCase {
+    input: (Vec<String>, bool),
+    file_system: Vec<PathBuf>,
+    expected: Vec<PathBuf>,
   }
+
+  fn test_collect_each(case: &CollectTestCase) {
+    let tmp_dir = TempDir::new().unwrap();
+    case.file_system.iter().for_each(|path| {
+      fs::create_dir_all(&tmp_dir.path().join(path.parent().unwrap())).unwrap();
+      File::create(&tmp_dir.path().join(path)).unwrap();
+    });
+
+    assert_eq!(
+      collect(
+        &tmp_dir.as_ref().to_path_buf(),
+        Some(case.input.clone().0),
+        case.input.1
+      ),
+      case
+        .expected
+        .iter()
+        .map(|path| tmp_dir.path().join(path).canonicalize().unwrap())
+        .collect::<Vec<_>>()
+    );
+    tmp_dir.close().unwrap();
+  }
+
+  test_each! {
+    test_collect,
+    0 => &CollectTestCase {
+      input: (vec!["foo".to_string()], true),
+      file_system: vec![PathBuf::from("./foo")],
+      expected: vec![PathBuf::from("./foo")],
+    },
+    1 => &CollectTestCase {
+      input: (vec!["bar".to_string()], true),
+      file_system: vec![PathBuf::from("./foo")],
+      expected: vec![],
+    },
+    2 => &CollectTestCase {
+      input: (vec!["f*".to_string()], true),
+      file_system: vec![PathBuf::from("./foo")],
+      expected: vec![PathBuf::from("./foo")],
+    },
+    3 => &CollectTestCase {
+      input: (vec!["*fo*".to_string()], true),
+      file_system: vec![PathBuf::from("./foo")],
+      expected: vec![PathBuf::from("./foo")],
+    },
+    4 => &CollectTestCase {
+      input: (vec!["**/foo".to_string()], true),
+      file_system: vec![PathBuf::from("./foo")],
+      expected: vec![PathBuf::from("./foo")],
+    },
+    5 => &CollectTestCase {
+      input: (vec!["**/baz".to_string()], true),
+      file_system: vec![PathBuf::from("./foo/bar/baz/qux")],
+      expected: vec![PathBuf::from("./foo/bar/baz/")],
+    },
+    6 => &CollectTestCase {
+      input: (vec!["**/bar".to_string()], true),
+      file_system: vec![PathBuf::from("./foo/bar")],
+      expected: vec![PathBuf::from("./foo/bar")],
+    },
+    7 => &CollectTestCase {
+      input: (vec!["foo".to_string(), "!foo".to_string()], true),
+      file_system: vec![PathBuf::from("./foo/bar")],
+      expected: vec![],
+    },
+    8 => &CollectTestCase {
+      input: (vec!["!foo".to_string(), "foo".to_string()], true),
+      file_system: vec![PathBuf::from("./foo/bar")],
+      expected: vec![PathBuf::from("./foo/")],
+    },
+    9 => &CollectTestCase {
+      input: (
+        vec!["foo".to_string(), "!foo".to_string(), "bar".to_string()],
+        true,
+      ),
+      file_system: vec![PathBuf::from("./foo"), PathBuf::from("./bar")],
+      expected: vec![PathBuf::from("./bar")],
+    },
+    10 => &CollectTestCase {
+      input: (
+        vec!["!foo".to_string(), "foo".to_string(), "bar".to_string()],
+        true,
+      ),
+      file_system: vec![PathBuf::from("./foo"), PathBuf::from("./bar")],
+      expected: vec![PathBuf::from("./foo"), PathBuf::from("./bar")],
+    },
+    11 => &CollectTestCase {
+      input: (
+        vec![
+          "foo".to_string(),
+          "!foo".to_string(),
+          "bar".to_string(),
+          "!bar".to_string(),
+        ],
+        true,
+      ),
+      file_system: vec![PathBuf::from("./foo"),PathBuf::from("./bar")],
+      expected: vec![],
+    },
+  }
+
+  struct ParseNegateTestCase {
+    input: (String, bool),
+    expected: (String, bool),
+  }
+
+  fn test_parse_negate_each(case: &ParseNegateTestCase) {
+    use super::*;
+
+    assert_eq!(
+      parse_negate(case.input.0.clone(), case.input.1),
+      case.expected
+    );
+  }
+
+  test_each!(
+    test_parse_negate,
+    0 => &ParseNegateTestCase {
+      input: (String::from("foo"), true),
+      expected: (String::from("foo"), false),
+    },
+    1 => &ParseNegateTestCase {
+      input: (String::from("!foo"), true),
+      expected: (String::from("foo"), true),
+    },
+    2 => &ParseNegateTestCase {
+      input: (String::from("!!foo"), true),
+      expected: (String::from("foo"), false),
+    },
+    3 => &ParseNegateTestCase {
+      input: (String::from("!!!foo"), true),
+      expected: (String::from("foo"), true),
+    },
+    4 => &ParseNegateTestCase {
+      input: (String::from("foo!bar"), true),
+      expected: (String::from("foo!bar"), false),
+    },
+    5 => &ParseNegateTestCase {
+      input: (String::from("foo!!!!!!!!!!bar"), true),
+      expected: (String::from("foo!!!!!!!!!!bar"), false),
+    },
+  );
 }
