@@ -102,7 +102,7 @@ mod tests {
   use tempfile::TempDir;
 
   struct CollectTestCase {
-    input: (Vec<String>, bool),
+    input: (Vec<&'static str>, bool),
     file_system: Vec<PathBuf>,
     expected: Vec<PathBuf>,
   }
@@ -117,7 +117,15 @@ mod tests {
     assert_eq!(
       collect(
         &tmp_dir.as_ref().to_path_buf(),
-        Some(case.input.clone().0),
+        Some(
+          case
+            .input
+            .clone()
+            .0
+            .iter()
+            .map(|s| s.to_string())
+            .collect::<Vec<_>>()
+        ),
         case.input.1
       ),
       case
@@ -132,53 +140,53 @@ mod tests {
   test_each! {
     test_collect,
     0 => &CollectTestCase {
-      input: (vec!["foo".to_string()], true),
+      input: (vec!["foo"], true),
       file_system: vec![PathBuf::from("./foo")],
       expected: vec![PathBuf::from("./foo")],
     },
     1 => &CollectTestCase {
-      input: (vec!["bar".to_string()], true),
+      input: (vec!["bar"], true),
       file_system: vec![PathBuf::from("./foo")],
       expected: vec![],
     },
     2 => &CollectTestCase {
-      input: (vec!["f*".to_string()], true),
+      input: (vec!["f*"], true),
       file_system: vec![PathBuf::from("./foo")],
       expected: vec![PathBuf::from("./foo")],
     },
     3 => &CollectTestCase {
-      input: (vec!["*fo*".to_string()], true),
+      input: (vec!["*fo*"], true),
       file_system: vec![PathBuf::from("./foo")],
       expected: vec![PathBuf::from("./foo")],
     },
     4 => &CollectTestCase {
-      input: (vec!["**/foo".to_string()], true),
+      input: (vec!["**/foo"], true),
       file_system: vec![PathBuf::from("./foo")],
       expected: vec![PathBuf::from("./foo")],
     },
     5 => &CollectTestCase {
-      input: (vec!["**/baz".to_string()], true),
+      input: (vec!["**/baz"], true),
       file_system: vec![PathBuf::from("./foo/bar/baz/qux")],
       expected: vec![PathBuf::from("./foo/bar/baz/")],
     },
     6 => &CollectTestCase {
-      input: (vec!["**/bar".to_string()], true),
+      input: (vec!["**/bar"], true),
       file_system: vec![PathBuf::from("./foo/bar")],
       expected: vec![PathBuf::from("./foo/bar")],
     },
     7 => &CollectTestCase {
-      input: (vec!["foo".to_string(), "!foo".to_string()], true),
+      input: (vec!["foo", "!foo"], true),
       file_system: vec![PathBuf::from("./foo/bar")],
       expected: vec![],
     },
     8 => &CollectTestCase {
-      input: (vec!["!foo".to_string(), "foo".to_string()], true),
+      input: (vec!["!foo", "foo"], true),
       file_system: vec![PathBuf::from("./foo/bar")],
       expected: vec![PathBuf::from("./foo/")],
     },
     9 => &CollectTestCase {
       input: (
-        vec!["foo".to_string(), "!foo".to_string(), "bar".to_string()],
+        vec!["foo", "!foo", "bar"],
         true,
       ),
       file_system: vec![PathBuf::from("./foo"), PathBuf::from("./bar")],
@@ -186,7 +194,7 @@ mod tests {
     },
     10 => &CollectTestCase {
       input: (
-        vec!["!foo".to_string(), "foo".to_string(), "bar".to_string()],
+        vec!["!foo", "foo", "bar"],
         true,
       ),
       file_system: vec![PathBuf::from("./foo"), PathBuf::from("./bar")],
@@ -195,10 +203,10 @@ mod tests {
     11 => &CollectTestCase {
       input: (
         vec![
-          "foo".to_string(),
-          "!foo".to_string(),
-          "bar".to_string(),
-          "!bar".to_string(),
+          "foo",
+          "!foo",
+          "bar",
+          "!bar",
         ],
         true,
       ),
@@ -208,44 +216,44 @@ mod tests {
   }
 
   struct ParseNegateTestCase {
-    input: (String, bool),
-    expected: (String, bool),
+    input: (&'static str, bool),
+    expected: (&'static str, bool),
   }
 
   fn test_parse_negate_each(case: &ParseNegateTestCase) {
     use super::*;
 
     assert_eq!(
-      parse_negate(case.input.0.clone(), case.input.1),
-      case.expected
+      parse_negate(case.input.0.to_string(), case.input.1),
+      (case.expected.0.to_string(), case.expected.1)
     );
   }
 
   test_each!(
     test_parse_negate,
     0 => &ParseNegateTestCase {
-      input: (String::from("foo"), true),
-      expected: (String::from("foo"), false),
+      input: ("foo", true),
+      expected: ("foo", false),
     },
     1 => &ParseNegateTestCase {
-      input: (String::from("!foo"), true),
-      expected: (String::from("foo"), true),
+      input: ("!foo", true),
+      expected: ("foo", true),
     },
     2 => &ParseNegateTestCase {
-      input: (String::from("!!foo"), true),
-      expected: (String::from("foo"), false),
+      input: ("!!foo", true),
+      expected: ("foo", false),
     },
     3 => &ParseNegateTestCase {
-      input: (String::from("!!!foo"), true),
-      expected: (String::from("foo"), true),
+      input: ("!!!foo", true),
+      expected: ("foo", true),
     },
     4 => &ParseNegateTestCase {
-      input: (String::from("foo!bar"), true),
-      expected: (String::from("foo!bar"), false),
+      input: ("foo!bar", true),
+      expected: ("foo!bar", false),
     },
     5 => &ParseNegateTestCase {
-      input: (String::from("foo!!!!!!!!!!bar"), true),
-      expected: (String::from("foo!!!!!!!!!!bar"), false),
+      input: ("foo!!!!!!!!!!bar", true),
+      expected: ("foo!!!!!!!!!!bar", false),
     },
   );
 }
