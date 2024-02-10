@@ -30,19 +30,28 @@ impl Workspaces {
     }
   }
 
+  /// Support full glob syntax including negate patterns.
+  /// - [workspaces | npm Docs](https://docs.npmjs.com/cli/v7/using-npm/workspaces)
   fn resolve_npm_workspaces(base_dir: PathBuf, patterns: Option<Vec<String>>) -> Vec<PathBuf> {
     utils::glob::collect(&base_dir, patterns, true)
   }
 
   /// Evaluate the given patterns individually and return the paths of matched entries in case of yarn.
+  /// - [Workspaces | yarn](https://classic.yarnpkg.com/en/docs/workspaces)
   fn resolve_yarn_workspaces(base_dir: PathBuf, patterns: Option<Vec<String>>) -> Vec<PathBuf> {
     utils::glob::collect(&base_dir, patterns, false)
   }
 
+  /// Full glob syntax is not supported yet.
+  /// - https://bun.sh/docs/install/workspaces
+  /// - https://github.com/oven-sh/bun/issues/1918
   fn resolve_bun_workspaces(base_dir: PathBuf, patterns: Option<Vec<String>>) -> Vec<PathBuf> {
     utils::glob::collect(&base_dir, patterns, false)
   }
 
+  /// Support full glob syntax including negate patterns.
+  /// - [Workspace | pnpm](https://pnpm.io/workspaces)
+  /// - [pnpm-workspace.yaml | pnpm](https://pnpm.io/pnpm-workspace_yaml)
   fn resolve_pnpm_workspaces(base_dir: PathBuf) -> Vec<PathBuf> {
     match PnpmWorkspace::new(&base_dir) {
       Ok(p) => utils::glob::collect(&base_dir, p.packages, true),
