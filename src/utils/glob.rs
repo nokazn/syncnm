@@ -3,6 +3,7 @@ use itertools::Itertools;
 use std::env::set_current_dir;
 use std::path::PathBuf;
 
+use crate::errors::{Error, Paths};
 use crate::utils::path::to_absolute_path;
 
 const NEGATE: char = '!';
@@ -35,7 +36,7 @@ pub fn collect(
   let result = entries
     .iter()
     .unique()
-    .map(to_absolute_path)
+    .filter_map(|entry| to_absolute_path(entry).ok())
     .collect::<Vec<_>>();
   result
 }
@@ -46,7 +47,9 @@ fn resolve_glob(
   enable_negate: bool,
 ) -> (Option<Vec<PathBuf>>, bool) {
   if let Err(error) = set_current_dir(&base_dir) {
-    log::warn!("Cannot access to a directory {:?}: {:?}", base_dir, error);
+    Error::NotAccessibleError(Paths::One(base_dir.clone()))
+      .log_debug(error)
+      .log_warn(None);
     return (None, false);
   }
   let (pattern, negate) = parse_negate(pattern, enable_negate);
@@ -55,7 +58,9 @@ fn resolve_glob(
       let entries = entries
         .filter_map(|entry| {
           if let Err(error) = &entry {
-            log::warn!("Cannot access to a file or directory: {:?}", error.path());
+            Error::NotAccessibleError(Paths::One(error.path().to_path_buf()))
+              .log_debug(error)
+              .log_warn(None);
           }
           entry.ok()
         })
@@ -63,7 +68,7 @@ fn resolve_glob(
       (Some(entries), negate)
     }
     Err(error) => {
-      log::warn!("Invalid glob pattern: {:?}", error);
+      Error::InvalidGlobPatternError(error).log_warn(None);
       (None, negate)
     }
   }

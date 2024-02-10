@@ -1,12 +1,17 @@
-use std::path::PathBuf;
+use glob::PatternError;
+use std::{fmt::Debug, path::PathBuf};
 use thiserror::Error;
 
 use crate::utils::path::to_absolute_path;
 
 #[derive(Debug, Error)]
 pub enum Error {
-  #[error("No such file or directory: `{}`", stringify_path(.0))]
+  #[error("Cannot access to a file or a directory: `{}`", stringify_path(.0))]
+  NotAccessibleError(Paths),
+  #[error("No such a file or a directory: `{}`", stringify_path(.0))]
   NoEntryError(Paths),
+  #[error("No lockfile at: `{}`", stringify_path(&Paths::One(.0.to_path_buf())))]
+  NoLockfileError(PathBuf),
   #[error("Invalid workspace: `{}`", stringify_path(&Paths::One(.0.to_path_buf())))]
   InvalidWorkspaceError(PathBuf),
   #[error("\"name\" and \"version\" are missing in: `{}`", stringify_path(&Paths::One(.0.to_path_buf())))]
@@ -15,6 +20,34 @@ pub enum Error {
   InvalidPackageJsonFieldsForBunError(PathBuf),
   #[error("Failed to parse: `{}`", stringify_path(.0))]
   ParseError(Paths),
+  #[error("Invalid glob pattern: {:?}", .0)]
+  InvalidGlobPatternError(PatternError),
+}
+
+impl Error {
+  pub fn log_debug<E: Debug>(self, error: E) -> Self {
+    log::debug!("{}: {:?}", &self.to_string(), error);
+    self
+  }
+
+  pub fn log_warn(self, prefix: Option<&str>) -> Self {
+    if let Some(prefix) = prefix {
+      log::warn!("{}: {}", prefix, &self.to_string());
+    } else {
+      log::warn!("{}", &self.to_string());
+    }
+    self
+  }
+
+  pub fn log_error(self, prefix: Option<&str>) -> Self {
+    if let Some(prefix) = prefix {
+      log::error!("{}: {}", prefix, &self.to_string());
+    } else {
+      log::error!("{}", &self.to_string());
+    }
+    // TODO: terminate the process
+    self
+  }
 }
 
 #[derive(Debug)]
@@ -25,10 +58,18 @@ pub enum Paths {
 
 fn stringify_path(paths: &Paths) -> String {
   match paths {
-    Paths::One(path) => to_absolute_path(path).to_string_lossy().to_string(),
+    Paths::One(path) => to_absolute_path(path)
+      .unwrap_or(path.clone())
+      .to_string_lossy()
+      .to_string(),
     Paths::Multiple(paths) => paths
       .iter()
-      .map(|path| to_absolute_path(path).to_string_lossy().to_string())
+      .map(|path| {
+        to_absolute_path(path)
+          .unwrap_or(path.clone())
+          .to_string_lossy()
+          .to_string()
+      })
       .collect::<Vec<_>>()
       .join(", "),
   }

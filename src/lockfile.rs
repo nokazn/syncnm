@@ -6,7 +6,7 @@ use std::{
 };
 use strum::IntoEnumIterator;
 
-use crate::{core::PackageManagerKind, utils::path::to_absolute_path};
+use crate::{core::PackageManagerKind, errors::Error};
 
 #[derive(Debug)]
 pub struct Lockfile {
@@ -15,13 +15,10 @@ pub struct Lockfile {
 }
 
 impl Lockfile {
-  pub fn new<T: AsRef<Path>>(dir_path: T) -> Result<Self, String> {
+  pub fn new<T: AsRef<Path>>(dir_path: T) -> Result<Self, Error> {
     match Lockfile::try_to_read_lockfile(&dir_path) {
       Some((kind, path)) => Ok(Self { kind, path }),
-      None => Err(format!(
-        "No lockfile at `{}`",
-        to_absolute_path(&dir_path).to_string_lossy()
-      )),
+      None => Err(Error::NoLockfileError(dir_path.as_ref().to_path_buf())),
     }
   }
 
