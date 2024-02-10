@@ -113,14 +113,14 @@ impl WorkspacePackage {
   fn validate_package_json_fields<T: AsRef<Path>>(self, base_dir: T) -> Result<Self, Error> {
     let package_json_path = to_package_json_path(&base_dir);
     match self.kind {
-      PackageManagerKind::YarnLock
+      PackageManagerKind::Yarn
         if self.original.name.is_none() || self.original.version.is_none() =>
       {
         Err(Error::InvalidPackageJsonFieldsForYarnError(
           package_json_path,
         ))
       }
-      PackageManagerKind::BunLockb if self.original.name.is_none() => Err(
+      PackageManagerKind::Bun if self.original.name.is_none() => Err(
         Error::InvalidPackageJsonFieldsForBunError(package_json_path),
       ),
       _ => Ok(self),

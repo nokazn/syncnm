@@ -22,10 +22,10 @@ impl Workspaces {
     Self {
       kind: kind,
       packages: match &kind {
-        PackageManagerKind::PackageLock => Workspaces::resolve_npm_workspaces(base_dir, patterns),
-        PackageManagerKind::BunLockb => Workspaces::resolve_bun_workspaces(base_dir, patterns),
-        PackageManagerKind::YarnLock => Workspaces::resolve_yarn_workspaces(base_dir, patterns),
-        PackageManagerKind::PnpmLock => Workspaces::resolve_pnpm_workspaces(base_dir),
+        PackageManagerKind::Npm => Workspaces::resolve_npm_workspaces(base_dir, patterns),
+        PackageManagerKind::Bun => Workspaces::resolve_bun_workspaces(base_dir, patterns),
+        PackageManagerKind::Yarn => Workspaces::resolve_yarn_workspaces(base_dir, patterns),
+        PackageManagerKind::Pnpm => Workspaces::resolve_pnpm_workspaces(base_dir),
       },
     }
   }
