@@ -93,7 +93,7 @@ fn parse_negate(pattern: String, enable_negate: bool) -> (String, bool) {
 
 #[cfg(test)]
 mod tests {
-  use crate::test_each;
+  use crate::{test_each, test_each_serial};
 
   use super::*;
   use std::fs::File;
@@ -137,7 +137,7 @@ mod tests {
     tmp_dir.close().unwrap();
   }
 
-  test_each! {
+  test_each_serial! {
     test_collect,
     0 => &CollectTestCase {
       input: (vec!["foo"], true),

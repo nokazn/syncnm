@@ -8,7 +8,7 @@ use strum::IntoEnumIterator;
 
 use crate::{core::PackageManagerKind, errors::Error};
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Lockfile {
   pub kind: PackageManagerKind,
   path: PathBuf,
@@ -42,4 +42,98 @@ impl Lockfile {
     let hash = Base64::encode_string(&raw_hash);
     Ok(hash)
   }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use crate::{core::PackageManagerKind, test_each, utils::path::to_absolute_path};
+
+  struct NewTestCase {
+    input: &'static str,
+    expected: (PackageManagerKind, PathBuf),
+  }
+
+  fn test_new_each(case: NewTestCase) {
+    let lockfile = Lockfile::new(case.input).unwrap();
+    assert_eq!(lockfile.kind, case.expected.0);
+    assert_eq!(lockfile.path, case.expected.1);
+  }
+
+  test_each!(
+    test_new,
+    "npm" => NewTestCase {
+      input: "./tests/fixtures/lockfile/npm",
+      expected: (
+        PackageManagerKind::Npm,
+        PathBuf::from("./tests/fixtures/lockfile/npm/package-lock.json")
+      ),
+    },
+    "yarn" => NewTestCase {
+      input: "./tests/fixtures/lockfile/yarn",
+      expected: (
+        PackageManagerKind::Yarn,
+        PathBuf::from("./tests/fixtures/lockfile/yarn/yarn.lock")
+      ),
+    },
+    "pnpm" => NewTestCase {
+      input: "./tests/fixtures/lockfile/pnpm",
+      expected: (
+        PackageManagerKind::Pnpm,
+        PathBuf::from("./tests/fixtures/lockfile/pnpm/pnpm-lock.yaml")
+      ),
+    },
+    "bun" => NewTestCase {
+      input: "./tests/fixtures/lockfile/bun",
+      expected: (
+        PackageManagerKind::Bun,
+        PathBuf::from("./tests/fixtures/lockfile/bun/bun.lockb")
+      ),
+    },
+  );
+
+  #[test]
+  fn test_new_nope() {
+    let lockfile = Lockfile::new("tests/fixtures/lockfile/nope");
+    assert_eq!(
+      lockfile.unwrap_err().to_string(),
+      format!(
+        "No lockfile at: `{}`",
+        to_absolute_path("tests/fixtures/lockfile/nope")
+          .unwrap()
+          .to_string_lossy()
+      )
+    );
+  }
+
+  struct GenerateHashTestCase {
+    input: &'static str,
+    expected: &'static str,
+  }
+
+  fn test_generate_hash_each(case: GenerateHashTestCase) {
+    let lockfile = Lockfile::new(case.input).unwrap();
+    let hash = lockfile.generate_hash().unwrap();
+    assert_eq!(hash, case.expected);
+  }
+
+  test_each!(
+    test_generate_hash,
+    "npm" => GenerateHashTestCase {
+      input: "./tests/fixtures/lockfile/npm",
+      expected: "uMrl01Qel1UU8Z0ft+9mWad4G4g0Vjwye3+gVGi7FNM=",
+    },
+    "yarn" => GenerateHashTestCase {
+      input: "./tests/fixtures/lockfile/yarn",
+      expected: "dmy8HKrg+5lrLw8qnSanCzazm+5zgxA6la9Z2zh7GJ0=",
+    },
+    "pnpm" => GenerateHashTestCase {
+      input: "./tests/fixtures/lockfile/pnpm",
+      expected: "5hzH5KU3P+PfcvEwLVd5mIJrFInY5SfHCCeoPCspqUs=",
+    },
+    "bun" => GenerateHashTestCase {
+      input: "./tests/fixtures/lockfile/bun",
+      expected: "hQM/8tFjhA/WkaV3dpQAEvNWVsyou1GpqyhIxwfKiTA=",
+    },
+  );
 }
