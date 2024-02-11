@@ -88,3 +88,52 @@ impl PnpmWorkspace {
     Err(Error::NoEntryError(Paths::Multiple(file_paths.to_vec())))
   }
 }
+
+#[cfg(test)]
+mod tests {
+  use crate::test_each_serial;
+
+  use super::*;
+
+  struct NewTestCase {
+    input: (PathBuf, PackageManagerKind, Option<Vec<String>>),
+    expected: Workspaces,
+  }
+
+  fn test_new_each(case: NewTestCase) {
+    let base_dir = case.input.0;
+    let workspaces = Workspaces::new(base_dir.clone(), case.input.1, case.input.2);
+    assert_eq!(workspaces.kind, case.expected.kind);
+    assert_eq!(
+      workspaces.packages,
+      case
+        .expected
+        .packages
+        .iter()
+        .map(|path| base_dir.join(path).canonicalize().unwrap())
+        .collect::<Vec<_>>()
+    );
+  }
+
+  test_each_serial!(
+    test_new,
+    "bun" => NewTestCase {
+      input: (
+        PathBuf::from("tests/fixtures/workspaces/bun"),
+        PackageManagerKind::Bun,
+        Some(vec![
+          String::from("packages/*"),
+          String::from("!packages/c"),
+        ]),
+      ),
+      expected: Workspaces {
+        kind: PackageManagerKind::Bun,
+        packages: vec![
+          PathBuf::from("./packages/a"),
+          PathBuf::from("./packages/b"),
+          PathBuf::from("./packages/c"),
+        ],
+      },
+    },
+  );
+}

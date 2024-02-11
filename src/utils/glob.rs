@@ -1,10 +1,9 @@
 use glob::glob;
 use itertools::Itertools;
-use std::env::set_current_dir;
 use std::path::PathBuf;
 
 use crate::errors::{Error, Paths};
-use crate::utils::path::to_absolute_path;
+use crate::utils::path::{run_in_base_dir, to_absolute_path};
 
 const NEGATE: char = '!';
 
@@ -13,45 +12,39 @@ pub fn collect(
   patterns: Option<Vec<String>>,
   enable_negate: bool,
 ) -> Vec<PathBuf> {
-  let mut entries = Vec::<PathBuf>::new();
-  for pattern in patterns.unwrap_or_default() {
-    if let (Some(matched), negate) = resolve_glob(&base_dir, pattern, enable_negate) {
-      if negate {
-        entries = entries
-          .iter()
-          .filter_map(|entry| {
-            if matched.iter().any(|p| entry.starts_with(p)) {
-              None
-            } else {
-              Some(entry)
-            }
-          })
-          .cloned()
-          .collect::<Vec<_>>();
-      } else {
-        entries.extend(matched);
+  let collect = || {
+    let mut entries = Vec::<PathBuf>::new();
+    for pattern in patterns.unwrap_or_default() {
+      if let (Some(matched), negate) = resolve_glob(pattern, enable_negate) {
+        if negate {
+          entries = entries
+            .iter()
+            .filter_map(|entry| {
+              if matched.iter().any(|p| entry.starts_with(p)) {
+                None
+              } else {
+                Some(entry)
+              }
+            })
+            .cloned()
+            .collect::<Vec<_>>();
+        } else {
+          entries.extend(matched);
+        }
       }
     }
-  }
-  let result = entries
-    .iter()
-    .unique()
-    .filter_map(|entry| to_absolute_path(entry).ok())
-    .collect::<Vec<_>>();
-  result
+    let result = entries
+      .iter()
+      .unique()
+      .filter_map(|entry| to_absolute_path(entry).ok())
+      .collect::<Vec<_>>();
+    result
+  };
+
+  run_in_base_dir(&base_dir, collect, None)
 }
 
-fn resolve_glob(
-  base_dir: &PathBuf,
-  pattern: String,
-  enable_negate: bool,
-) -> (Option<Vec<PathBuf>>, bool) {
-  if let Err(error) = set_current_dir(&base_dir) {
-    Error::NotAccessibleError(Paths::One(base_dir.clone()))
-      .log_debug(error)
-      .log_warn(None);
-    return (None, false);
-  }
+fn resolve_glob(pattern: String, enable_negate: bool) -> (Option<Vec<PathBuf>>, bool) {
   let (pattern, negate) = parse_negate(pattern, enable_negate);
   match glob(&pattern) {
     Ok(entries) => {
