@@ -6,7 +6,6 @@ use std::{
 };
 
 use crate::errors::Error;
-use crate::errors::Paths;
 
 pub fn to_absolute_path<T: AsRef<Path>>(path: T) -> Result<PathBuf, Error> {
   let path = path.as_ref();
@@ -15,7 +14,7 @@ pub fn to_absolute_path<T: AsRef<Path>>(path: T) -> Result<PathBuf, Error> {
   } else {
     current_dir()
       .map_err(|error| {
-        Error::NotAccessibleError(Paths::One(PathBuf::from("./")))
+        Error::NotAccessibleError(PathBuf::from("./"))
           .log_debug(error)
           .log_warn(None)
       })?
@@ -32,7 +31,7 @@ where
   U: Default,
 {
   let on_io_error = |error: io::Error| {
-    Error::NotAccessibleError(Paths::One(base_dir.as_ref().to_path_buf()))
+    Error::NotAccessibleError(base_dir.as_ref().to_path_buf())
       .log_debug(&error)
       .log_error(None);
     fallback.unwrap_or_default()

@@ -6,8 +6,8 @@ use crate::utils::path::to_absolute_path;
 
 #[derive(Debug, Error)]
 pub enum Error {
-  #[error("Cannot access to a file or a directory: `{}`", stringify_path(.0))]
-  NotAccessibleError(Paths),
+  #[error("Cannot access to a file or a directory: `{}`", stringify_path(&Paths::One(.0.to_path_buf())))]
+  NotAccessibleError(PathBuf),
   #[error("No such a file or a directory: `{}`", stringify_path(.0))]
   NoEntryError(Paths),
   #[error("No lockfile at: `{}`", stringify_path(&Paths::One(.0.to_path_buf())))]

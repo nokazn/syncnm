@@ -51,7 +51,7 @@ fn resolve_glob(pattern: String, enable_negate: bool) -> (Option<Vec<PathBuf>>, 
       let entries = entries
         .filter_map(|entry| {
           if let Err(error) = &entry {
-            Error::NotAccessibleError(Paths::One(error.path().to_path_buf()))
+            Error::NotAccessibleError(error.path().to_path_buf())
               .log_debug(error)
               .log_warn(None);
           }
