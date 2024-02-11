@@ -13,14 +13,12 @@ use crate::{
 
 #[derive(Debug)]
 pub struct Workspaces {
-  kind: PackageManagerKind,
   pub packages: Vec<PathBuf>,
 }
 
 impl Workspaces {
   pub fn new(base_dir: PathBuf, kind: PackageManagerKind, patterns: Option<Vec<String>>) -> Self {
     Self {
-      kind: kind,
       packages: match &kind {
         PackageManagerKind::Npm => Workspaces::resolve_npm_workspaces(base_dir, patterns),
         PackageManagerKind::Bun => Workspaces::resolve_bun_workspaces(base_dir, patterns),
@@ -103,7 +101,6 @@ mod tests {
   fn test_new_each(case: NewTestCase) {
     let base_dir = case.input.0;
     let workspaces = Workspaces::new(base_dir.clone(), case.input.1, case.input.2);
-    assert_eq!(workspaces.kind, case.expected.kind);
     assert_eq!(
       workspaces.packages,
       case
@@ -117,6 +114,52 @@ mod tests {
 
   test_each_serial!(
     test_new,
+    "npm_evaluate_negate_patterns" => NewTestCase {
+      input: (
+        PathBuf::from("tests/fixtures/workspaces/npm"),
+        PackageManagerKind::Npm,
+        Some(vec![
+          String::from("packages/*"),
+          String::from("!packages/c"),
+        ]),
+      ),
+      expected: Workspaces {
+        packages: vec![
+          PathBuf::from("./packages/a"),
+          PathBuf::from("./packages/b"),
+        ],
+      },
+    },
+    "yarn_evaluate_negate_patterns" => NewTestCase {
+      input: (
+        PathBuf::from("tests/fixtures/workspaces/yarn"),
+        PackageManagerKind::Yarn,
+        Some(vec![
+          String::from("packages/*"),
+          String::from("!packages/c"),
+        ]),
+      ),
+      expected: Workspaces {
+        packages: vec![
+          PathBuf::from("./packages/a"),
+          PathBuf::from("./packages/b"),
+          PathBuf::from("./packages/c"),
+        ],
+      },
+    },
+    "pnpm_evaluate_negate_patterns" => NewTestCase {
+      input: (
+        PathBuf::from("tests/fixtures/workspaces/pnpm"),
+        PackageManagerKind::Pnpm,
+        None,
+      ),
+      expected: Workspaces {
+        packages: vec![
+          PathBuf::from("./packages/a"),
+          PathBuf::from("./packages/b"),
+        ],
+      },
+    },
     "bun" => NewTestCase {
       input: (
         PathBuf::from("tests/fixtures/workspaces/bun"),
@@ -127,7 +170,6 @@ mod tests {
         ]),
       ),
       expected: Workspaces {
-        kind: PackageManagerKind::Bun,
         packages: vec![
           PathBuf::from("./packages/a"),
           PathBuf::from("./packages/b"),
