@@ -132,6 +132,7 @@ mod tests {
 
   test_each_serial! {
     test_collect,
+    test_collect_each,
     0 => &CollectTestCase {
       input: (vec!["foo"], true),
       file_system: vec![PathBuf::from("./foo")],
@@ -224,6 +225,7 @@ mod tests {
 
   test_each!(
     test_parse_negate,
+    test_parse_negate_each,
     0 => &ParseNegateTestCase {
       input: ("foo", true),
       expected: ("foo", false),

@@ -114,6 +114,7 @@ mod tests {
 
   test_each_serial!(
     test_new,
+    test_new_each,
     "npm" => NewTestCase {
       input: (
         PathBuf::from("tests/fixtures/workspaces/npm"),

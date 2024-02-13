@@ -62,6 +62,7 @@ mod tests {
 
   test_each!(
     test_new,
+    test_new_each,
     "npm" => NewTestCase {
       input: "./tests/fixtures/lockfile/npm",
       expected: (
@@ -119,6 +120,7 @@ mod tests {
 
   test_each!(
     test_generate_hash,
+    test_generate_hash_each,
     "npm" => GenerateHashTestCase {
       input: "./tests/fixtures/lockfile/npm",
       expected: "uMrl01Qel1UU8Z0ft+9mWad4G4g0Vjwye3+gVGi7FNM=",

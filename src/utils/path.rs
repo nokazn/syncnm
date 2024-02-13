@@ -90,6 +90,7 @@ mod tests {
 
   test_each_serial!(
     test_to_absolute_path,
+    test_to_absolute_path_each,
     "1" => &ToAbsolutePathTestCase {
       input: "/Users/user-a/app/1",
       base_dir: None,
