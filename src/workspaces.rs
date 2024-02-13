@@ -114,7 +114,7 @@ mod tests {
 
   test_each_serial!(
     test_new,
-    "npm_evaluate_negate_patterns" => NewTestCase {
+    "npm" => NewTestCase {
       input: (
         PathBuf::from("tests/fixtures/workspaces/npm"),
         PackageManagerKind::Npm,
@@ -130,7 +130,7 @@ mod tests {
         ],
       },
     },
-    "yarn_evaluate_negate_patterns" => NewTestCase {
+    "yarn" => NewTestCase {
       input: (
         PathBuf::from("tests/fixtures/workspaces/yarn"),
         PackageManagerKind::Yarn,
@@ -147,7 +147,7 @@ mod tests {
         ],
       },
     },
-    "pnpm_evaluate_negate_patterns" => NewTestCase {
+    "pnpm" => NewTestCase {
       input: (
         PathBuf::from("tests/fixtures/workspaces/pnpm"),
         PackageManagerKind::Pnpm,
