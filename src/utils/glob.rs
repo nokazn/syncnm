@@ -2,7 +2,7 @@ use glob::glob;
 use itertools::Itertools;
 use std::path::PathBuf;
 
-use crate::errors::{Error, Paths};
+use crate::errors::Error;
 use crate::utils::path::{run_in_base_dir, to_absolute_path};
 
 const NEGATE: char = '!';
@@ -61,7 +61,7 @@ fn resolve_glob(pattern: String, enable_negate: bool) -> (Option<Vec<PathBuf>>, 
       (Some(entries), negate)
     }
     Err(error) => {
-      Error::InvalidGlobPatternError(error).log_warn(None);
+      Error::InvalidGlobPatternError(error.msg).log_warn(None);
       (None, negate)
     }
   }

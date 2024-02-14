@@ -185,12 +185,15 @@ impl Hashable for ProjectRoot {
 impl ProjectRoot {
   pub fn new<T: AsRef<Path>>(base_dir: T, kind: PackageManagerKind) -> Result<Self, Error> {
     let original = PackageJson::new(&base_dir)?;
-    Ok(Self {
-      original: original.clone(),
-      kind,
-      root: PackageDependencies::new(original.clone()),
-      workspaces: Self::resolve_workspaces(base_dir, kind, original.workspaces),
-    })
+    Ok(
+      Self {
+        original: original.clone(),
+        kind,
+        root: PackageDependencies::new(original.clone()),
+        workspaces: Self::resolve_workspaces(&base_dir, kind, original.workspaces),
+      }
+      .validate_package_json_fields(&base_dir),
+    )?
   }
 
   fn resolve_workspaces<T: AsRef<Path>>(
@@ -214,6 +217,22 @@ impl ProjectRoot {
     }
     workspace_map
   }
+
+  fn validate_package_json_fields<T: AsRef<Path>>(self, base_dir: T) -> Result<Self, Error> {
+    match self.kind {
+      PackageManagerKind::Yarn
+        if self.original.workspaces.clone().unwrap_or_default().len() > 0
+          && !self.original.private.unwrap_or_default() =>
+      {
+        Err(
+          Error::InvalidPackageJsonPrivateForYarnError(to_package_json_path(&base_dir))
+            .log_error(None),
+        )
+      }
+      _ => Ok(self),
+    }
+  }
+}
 
 #[cfg(test)]
 mod tests {
@@ -294,16 +313,21 @@ mod tests {
 
   struct NewTestCase {
     input: (PathBuf, PackageManagerKind),
-    expected: ProjectRoot,
+    expected: Result<ProjectRoot, Error>,
   }
 
   fn test_new_each(case: NewTestCase) {
     let base_dir = case.input.0;
-    let project_root = ProjectRoot::new(base_dir.clone(), case.input.1).unwrap();
-    assert_eq!(project_root.original, case.expected.original);
-    assert_eq!(project_root.kind, case.expected.kind);
-    assert_eq!(project_root.root, case.expected.root);
-    assert_eq!(project_root.workspaces, case.expected.workspaces);
+    let project_root = ProjectRoot::new(base_dir.clone(), case.input.1);
+    if let Ok(expected) = case.expected {
+      let project_root = project_root.unwrap();
+      assert_eq!(project_root.original, expected.original);
+      assert_eq!(project_root.kind, expected.kind);
+      assert_eq!(project_root.root, expected.root);
+      assert_eq!(project_root.workspaces, expected.workspaces);
+    } else {
+      assert_eq!(project_root.unwrap_err(), case.expected.unwrap_err());
+    }
   }
 
   test_each_serial!(
@@ -318,7 +342,7 @@ mod tests {
         let dev_dependencies = btree_map!(
           String::from("typescript") => String::from("^5.3.3"),
         );
-        ProjectRoot {
+        Ok(ProjectRoot {
           original: PackageJson {
             workspaces: Some(vec![
               String::from("packages/*"),
@@ -338,7 +362,7 @@ mod tests {
               ..Default::default()
             },
           ),
-        }
+        })
       }
     },
     "yarn" => NewTestCase {
@@ -350,7 +374,7 @@ mod tests {
         let dev_dependencies = btree_map!(
           String::from("typescript") => String::from("^5.3.3"),
         );
-        ProjectRoot {
+        Ok(ProjectRoot {
           original: PackageJson {
             workspaces: Some(vec![String::from("packages/*"), String::from("!packages/c")]),
             private: Some(true),
@@ -384,8 +408,15 @@ mod tests {
               ..Default::default()
             },
           ),
-        }
+        })
       }
+    },
+    "yarn_private_false" => NewTestCase {
+      input: (
+        PathBuf::from("tests/fixtures/workspaces/yarn_private_false"),
+        PackageManagerKind::Yarn,
+      ),
+      expected:Err(Error::InvalidPackageJsonPrivateForYarnError(PathBuf::from("tests/fixtures/workspaces/yarn_private_false/package.json")))
     },
     "pnpm" => NewTestCase {
       input: (
@@ -396,7 +427,7 @@ mod tests {
         let dev_dependencies = btree_map!(
           String::from("typescript") => String::from("^5.3.3"),
         );
-        ProjectRoot {
+        Ok(ProjectRoot {
           original: PackageJson {
             devDependencies: Some(dev_dependencies.clone()),
             ..Default::default()
@@ -416,7 +447,7 @@ mod tests {
               ..Default::default()
             },
           ),
-        }
+        })
       }
     },
     "bun" => NewTestCase {
@@ -428,7 +459,7 @@ mod tests {
         let dev_dependencies = btree_map!(
           String::from("typescript") => String::from("^5.3.3"),
         );
-        ProjectRoot {
+        Ok(ProjectRoot {
           original: PackageJson {
             workspaces: Some(vec![String::from("packages/*")]),
             devDependencies: Some(dev_dependencies.clone()),
@@ -459,7 +490,7 @@ mod tests {
               ..Default::default()
             },
           ),
-        }
+        })
       }
     },
   );
