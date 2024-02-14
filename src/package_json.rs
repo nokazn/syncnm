@@ -36,10 +36,11 @@ fn is_valid_base_dir<T: AsRef<Path>>(base_dir: T) -> bool {
 /// --------------------------------------------------
 ///
 #[allow(non_snake_case)]
-#[derive(Serialize, Deserialize, Hash, Debug, Clone)]
+#[derive(Serialize, Deserialize, Hash, Debug, Clone, PartialEq, Default)]
 struct PackageJson {
   name: Option<String>,
   version: Option<String>,
+  private: Option<bool>,
   dependencies: Option<Dependencies>,
   devDependencies: Option<Dependencies>,
   peerDependencies: Option<Dependencies>,
@@ -63,7 +64,7 @@ impl PackageJson {
 ///
 /// --------------------------------------------------
 ///
-#[derive(Serialize, Deserialize, Hash, Clone, Debug)]
+#[derive(Serialize, Deserialize, Hash, Clone, Debug, PartialEq, Default)]
 struct PackageDependencies {
   dependencies: Dependencies,
   dev_dependencies: Dependencies,
@@ -87,7 +88,7 @@ impl PackageDependencies {
 ///
 /// --------------------------------------------------
 ///
-#[derive(Serialize, Deserialize, Hash, Clone, Debug)]
+#[derive(Serialize, Deserialize, Hash, Clone, Debug, PartialEq, Default)]
 struct WorkspacePackage {
   original: PackageJson,
   base_dir: PathBuf,
@@ -144,7 +145,7 @@ impl WorkspacePackage {
 ///
 /// --------------------------------------------------
 ///
-#[derive(Serialize, Deserialize, Hash, Clone, Debug)]
+#[derive(Serialize, Deserialize, Hash, Clone, PartialEq, Debug, Default)]
 pub struct ProjectRoot {
   original: PackageJson,
   kind: PackageManagerKind,
@@ -213,4 +214,253 @@ impl ProjectRoot {
     }
     workspace_map
   }
+
+#[cfg(test)]
+mod tests {
+  use tempfile::TempDir;
+
+  use super::*;
+  use crate::{
+    btree_map, core::PackageManagerKind, test_each, test_each_serial, utils::path::to_absolute_path,
+  };
+
+  struct ToPackageJsonTestCase {
+    input: PathBuf,
+    expected: PathBuf,
+  }
+
+  fn test_to_package_json_path_each(case: ToPackageJsonTestCase) {
+    assert_eq!(to_package_json_path(&case.input), case.expected);
+  }
+
+  test_each!(
+    test_to_package_json_path,
+    test_to_package_json_path_each,
+    "0" => ToPackageJsonTestCase {
+      input: PathBuf::from("./foo"),
+      expected: PathBuf::from("./foo/package.json"),
+    },
+    "1" => ToPackageJsonTestCase {
+      input: PathBuf::from("./"),
+      expected: PathBuf::from("./package.json"),
+    },
+    "2" => ToPackageJsonTestCase {
+      input: PathBuf::from("/"),
+      expected: PathBuf::from("/package.json"),
+    },
+    "3" => ToPackageJsonTestCase {
+      input: PathBuf::from("/foo/bar"),
+      expected: PathBuf::from("/foo/bar/package.json"),
+    },
+    "4" => ToPackageJsonTestCase {
+      input: PathBuf::from(""),
+      expected: PathBuf::from("package.json"),
+    },
+  );
+
+  struct IsValidBaseDirTestCase {
+    input: &'static str,
+    expected: bool,
+  }
+
+  fn test_is_valid_base_dir_each(case: IsValidBaseDirTestCase) {
+    let temp_dir = TempDir::new().unwrap();
+    let base_dir = temp_dir.path().join(case.input);
+    fs::create_dir_all(&base_dir).unwrap();
+    assert_eq!(is_valid_base_dir(&base_dir), case.expected);
+    temp_dir.close().unwrap();
+  }
+
+  test_each_serial!(
+    test_is_valid_base_dir,
+    test_is_valid_base_dir_each,
+    "valid_0" => IsValidBaseDirTestCase{
+      input: "./",
+      expected: true,
+    },
+    "valid_1" => IsValidBaseDirTestCase{
+      input: "./foo/bar/",
+      expected: true,
+    },
+    "invalid_0" => IsValidBaseDirTestCase{
+      input: "./node_modules",
+      expected: false,
+    },
+    "invalid_1" => IsValidBaseDirTestCase{
+      input: "./foo/bar/packages/node_modules",
+      expected: false,
+    },
+  );
+
+  struct NewTestCase {
+    input: (PathBuf, PackageManagerKind),
+    expected: ProjectRoot,
+  }
+
+  fn test_new_each(case: NewTestCase) {
+    let base_dir = case.input.0;
+    let project_root = ProjectRoot::new(base_dir.clone(), case.input.1).unwrap();
+    assert_eq!(project_root.original, case.expected.original);
+    assert_eq!(project_root.kind, case.expected.kind);
+    assert_eq!(project_root.root, case.expected.root);
+    assert_eq!(project_root.workspaces, case.expected.workspaces);
+  }
+
+  test_each_serial!(
+    test_new,
+    test_new_each,
+    "npm" => NewTestCase {
+      input: (
+        PathBuf::from("tests/fixtures/workspaces/npm"),
+        PackageManagerKind::Npm,
+      ),
+      expected: {
+        let dev_dependencies = btree_map!(
+          String::from("typescript") => String::from("^5.3.3"),
+        );
+        ProjectRoot {
+          original: PackageJson {
+            workspaces: Some(vec![
+              String::from("packages/*"),
+              String::from("!packages/c")
+            ]),
+            devDependencies: Some(dev_dependencies.clone()),
+            ..Default::default()
+          },
+          kind: PackageManagerKind::Npm,
+          root: PackageDependencies {
+            dev_dependencies,
+            ..Default::default()
+          },
+          workspaces: btree_map!(
+            String::from("a") => WorkspacePackage {
+              base_dir: to_absolute_path("tests/fixtures/workspaces/npm/packages/a").unwrap(),
+              ..Default::default()
+            },
+          ),
+        }
+      }
+    },
+    "yarn" => NewTestCase {
+      input: (
+        PathBuf::from("tests/fixtures/workspaces/yarn"),
+        PackageManagerKind::Yarn,
+      ),
+      expected: {
+        let dev_dependencies = btree_map!(
+          String::from("typescript") => String::from("^5.3.3"),
+        );
+        ProjectRoot {
+          original: PackageJson {
+            workspaces: Some(vec![String::from("packages/*"), String::from("!packages/c")]),
+            private: Some(true),
+            devDependencies: Some(dev_dependencies.clone()),
+            ..Default::default()
+          },
+          kind: PackageManagerKind::Yarn,
+          root: PackageDependencies {
+            dev_dependencies,
+            ..Default::default()
+          },
+          workspaces: btree_map!(
+            String::from("@yarn/a") => WorkspacePackage {
+              original: PackageJson {
+                name: Some(String::from("@yarn/a")),
+                version: Some(String::from("0.1.0")),
+                ..Default::default()
+              },
+              kind: PackageManagerKind::Yarn,
+              base_dir: to_absolute_path("tests/fixtures/workspaces/yarn/packages/a").unwrap(),
+              ..Default::default()
+            },
+            String::from("@yarn/c") => WorkspacePackage {
+              original: PackageJson {
+                name: Some(String::from("@yarn/c")),
+                version: Some(String::from("0.0.0")),
+                ..Default::default()
+              },
+              kind: PackageManagerKind::Yarn,
+              base_dir: to_absolute_path("tests/fixtures/workspaces/yarn/packages/c").unwrap(),
+              ..Default::default()
+            },
+          ),
+        }
+      }
+    },
+    "pnpm" => NewTestCase {
+      input: (
+        PathBuf::from("tests/fixtures/workspaces/pnpm"),
+        PackageManagerKind::Pnpm,
+      ),
+      expected: {
+        let dev_dependencies = btree_map!(
+          String::from("typescript") => String::from("^5.3.3"),
+        );
+        ProjectRoot {
+          original: PackageJson {
+            devDependencies: Some(dev_dependencies.clone()),
+            ..Default::default()
+          },
+          kind: PackageManagerKind::Pnpm,
+          root: PackageDependencies {
+            dev_dependencies,
+            ..Default::default()
+          },
+          workspaces: btree_map!(
+            String::from("a") => WorkspacePackage {
+              original: PackageJson {
+                ..Default::default()
+              },
+              kind: PackageManagerKind::Pnpm,
+              base_dir: to_absolute_path("tests/fixtures/workspaces/pnpm/packages/a").unwrap(),
+              ..Default::default()
+            },
+          ),
+        }
+      }
+    },
+    "bun" => NewTestCase {
+      input: (
+        PathBuf::from("tests/fixtures/workspaces/bun"),
+        PackageManagerKind::Bun,
+      ),
+      expected: {
+        let dev_dependencies = btree_map!(
+          String::from("typescript") => String::from("^5.3.3"),
+        );
+        ProjectRoot {
+          original: PackageJson {
+            workspaces: Some(vec![String::from("packages/*")]),
+            devDependencies: Some(dev_dependencies.clone()),
+            ..Default::default()
+          },
+          kind: PackageManagerKind::Bun,
+          root: PackageDependencies {
+            dev_dependencies,
+            ..Default::default()
+          },
+          workspaces: btree_map!(
+            String::from("@bun/a") => WorkspacePackage {
+              original: PackageJson {
+                name: Some(String::from("@bun/a")),
+                ..Default::default()
+              },
+              kind: PackageManagerKind::Bun,
+              base_dir: to_absolute_path("tests/fixtures/workspaces/bun/packages/a").unwrap(),
+              ..Default::default()
+            },
+            String::from("@bun/c") => WorkspacePackage {
+              original: PackageJson {
+                name: Some(String::from("@bun/c")),
+                ..Default::default()
+              },
+              kind: PackageManagerKind::Bun,
+              base_dir: to_absolute_path("tests/fixtures/workspaces/bun/packages/c").unwrap(),
+              ..Default::default()
+            },
+          ),
+        }
+      }
+    },
+  );
 }

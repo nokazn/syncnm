@@ -1,5 +1,10 @@
 {
-  "dependencies": {
+  "workspaces": [
+    "packages/*",
+    "!packages/c"
+  ],
+  "private": true,
+  "devDependencies": {
     "typescript": "^5.3.3"
   }
 }

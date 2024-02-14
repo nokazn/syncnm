@@ -9,6 +9,12 @@ pub enum PackageManagerKind {
   Bun,
 }
 
+impl Default for PackageManagerKind {
+  fn default() -> Self {
+    PackageManagerKind::Npm
+  }
+}
+
 impl PackageManagerKind {
   pub fn file_names(&self) -> Vec<&str> {
     match self {
