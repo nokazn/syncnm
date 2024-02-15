@@ -2,6 +2,9 @@ use base64ct::{Base64, Encoding};
 use sha2::{Digest, Sha256};
 use std::fmt::Debug;
 
+#[derive(Debug)]
+pub struct Hash(String);
+
 pub trait Hashable {
   fn to_bytes(&self) -> serde_json::Result<Vec<u8>>
   where
@@ -11,7 +14,7 @@ pub trait Hashable {
     Ok(json.into_bytes())
   }
 
-  fn generate_hash(&self) -> serde_json::Result<String>
+  fn generate_hash(&self) -> serde_json::Result<Hash>
   where
     Self: serde::Serialize + Debug,
   {
@@ -20,7 +23,7 @@ pub trait Hashable {
       generator.update(bytes);
       let raw_hash = generator.finalize();
       let hash = Base64::encode_string(&raw_hash);
-      hash
+      Hash(hash)
     })
   }
 }
