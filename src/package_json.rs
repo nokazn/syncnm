@@ -1,11 +1,12 @@
+use regex::Regex;
+use serde::{Deserialize, Serialize};
 use std::{
   collections::BTreeMap,
   fs,
   hash::Hash,
   path::{Path, PathBuf},
 };
-
-use serde::{Deserialize, Serialize};
+use strum::IntoEnumIterator;
 
 use crate::{
   core::PackageManagerKind,
@@ -41,6 +42,7 @@ struct PackageJson {
   name: Option<String>,
   version: Option<String>,
   private: Option<bool>,
+  packageManager: Option<String>,
   dependencies: Option<Dependencies>,
   devDependencies: Option<Dependencies>,
   peerDependencies: Option<Dependencies>,
@@ -188,7 +190,7 @@ impl ProjectRoot {
     Ok(
       Self {
         original: original.clone(),
-        kind,
+        kind: Self::resolve_package_manager_kind(&original, kind),
         root: PackageDependencies::new(original.clone()),
         workspaces: Self::resolve_workspaces(&base_dir, kind, original.workspaces),
       }
@@ -216,6 +218,43 @@ impl ProjectRoot {
       };
     }
     workspace_map
+  }
+
+  fn resolve_package_manager_kind(
+    original: &PackageJson,
+    kind: PackageManagerKind,
+  ) -> PackageManagerKind {
+    let package_manager = match &original.packageManager {
+      Some(package_manager) => package_manager,
+      None => return kind,
+    };
+    let regex = {
+      let package_managers = PackageManagerKind::iter()
+        .filter_map(|kind| kind.name())
+        .collect::<Vec<_>>()
+        .join("|");
+      let s = r"^(".to_owned() + &package_managers + r")(?:@.+)?";
+      match Regex::new(&s) {
+        Ok(r) => r,
+        Err(_) => return kind,
+      }
+    };
+    match regex
+      .captures(&package_manager)
+      .and_then(|c| c.get(1))
+      .map(|m| m.as_str())
+    {
+      Some(p) => PackageManagerKind::iter()
+        .find(|kind| {
+          if let Some(name) = kind.name() {
+            name == p
+          } else {
+            false
+          }
+        })
+        .unwrap_or(kind),
+      None => kind,
+    }
   }
 
   fn validate_package_json_fields<T: AsRef<Path>>(self, base_dir: T) -> Result<Self, Error> {
@@ -308,6 +347,71 @@ mod tests {
     "invalid_1" => IsValidBaseDirTestCase{
       input: "./foo/bar/packages/node_modules",
       expected: false,
+    },
+  );
+
+  struct ResolvePackageManagerKindTestCase {
+    input: (&'static str, PackageManagerKind),
+    expected: PackageManagerKind,
+  }
+
+  fn test_resolve_package_manager_kind_each(case: ResolvePackageManagerKindTestCase) {
+    let original = PackageJson {
+      packageManager: Some(String::from(case.input.0)),
+      ..Default::default()
+    };
+    assert_eq!(
+      ProjectRoot::resolve_package_manager_kind(&original, case.input.1),
+      PackageManagerKind::from(case.expected)
+    );
+  }
+
+  test_each!(
+    test_resolve_package_manager_kind,
+    test_resolve_package_manager_kind_each,
+    "npm" => ResolvePackageManagerKindTestCase {
+      input: ("npm", PackageManagerKind::Bun),
+      expected: PackageManagerKind::Npm,
+    },
+    "invalid_npm" => ResolvePackageManagerKindTestCase {
+      input: (" npm", PackageManagerKind::Bun),
+      expected: PackageManagerKind::Bun,
+    },
+    "npm_with_valid_version_1" => ResolvePackageManagerKindTestCase {
+      input: ("npm@7.0.0", PackageManagerKind::Bun),
+      expected: PackageManagerKind::Npm,
+    },
+    "detect_as_npm_with_invalid_version_1" => ResolvePackageManagerKindTestCase {
+      input: ("npm@", PackageManagerKind::Bun),
+      expected: PackageManagerKind::Npm,
+    },
+    "yarn" => ResolvePackageManagerKindTestCase {
+      input: ("yarn", PackageManagerKind::Bun),
+      expected: PackageManagerKind::Yarn,
+    },
+    "yarn_with_valid_version_1" => ResolvePackageManagerKindTestCase {
+      input: ("yarn@4.1.0", PackageManagerKind::Bun),
+      expected: PackageManagerKind::Yarn,
+    },
+    "yarn_with_valid_version_2" => ResolvePackageManagerKindTestCase {
+      input: ("yarn@4.1.0+sha256.81a00df816059803e6b5148acf03ce313cad36b7f6e5af6efa040a15981a6ffb", PackageManagerKind::Bun),
+      expected: PackageManagerKind::Yarn,
+    },
+    "pnpm" => ResolvePackageManagerKindTestCase {
+      input: ("pnpm", PackageManagerKind::Bun),
+      expected: PackageManagerKind::Pnpm,
+    },
+    "pnpm_with_valid_version" => ResolvePackageManagerKindTestCase {
+      input: ("pnpm@9.0.0-alpha.4+sha256.2dfc103b0859426dc338ab2796cad7bf83ffb92be0fdd79f65f26ffeb5114ce2", PackageManagerKind::Bun),
+      expected: PackageManagerKind::Pnpm,
+    },
+    "detect_as_pnpm_with_invalid_semver" => ResolvePackageManagerKindTestCase {
+      input: ("pnpm@8", PackageManagerKind::Bun),
+      expected: PackageManagerKind::Pnpm,
+    },
+    "bun_is_not_supported_by_corepack" => ResolvePackageManagerKindTestCase {
+      input: ("bun", PackageManagerKind::Npm),
+      expected: PackageManagerKind::Npm,
     },
   );
 

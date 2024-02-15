@@ -649,6 +649,7 @@ dependencies = [
  "log",
  "paste",
  "path-clean",
+ "regex",
  "serde",
  "serde_json",
  "serde_yaml",

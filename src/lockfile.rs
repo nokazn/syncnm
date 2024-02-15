@@ -24,7 +24,7 @@ impl Lockfile {
 
   fn try_to_read_lockfile<T: AsRef<Path>>(dir_path: T) -> Option<(PackageManagerKind, PathBuf)> {
     for kind in PackageManagerKind::iter() {
-      for lockfile in kind.file_names() {
+      for lockfile in kind.lockfile_names() {
         let file_path = dir_path.as_ref().join(lockfile);
         if file_path.exists() {
           return Some((kind, file_path));
