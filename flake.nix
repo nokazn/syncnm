@@ -22,6 +22,7 @@
             rustc
             rustfmt
             rustPackages.clippy
+            cargo-watch
             pre-commit
             nixpkgs-fmt
             just

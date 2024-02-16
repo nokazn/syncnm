@@ -29,8 +29,12 @@ fmt-dprint *flags:
 lint:
   cargo clippy
 
-test:
-  cargo test --locked --frozen --all-features -- --nocapture
+test watch="":
+  if [[ "{{watch}}" == "--watch" ]]; then \
+    cargo watch -x 'test --locked --frozen --all-features -- --nocapture'; \
+  else \
+    cargo test --locked --frozen --all-features -- --nocapture; \
+  fi
 
 build:
   cargo build
