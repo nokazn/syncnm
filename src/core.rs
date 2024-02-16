@@ -1,5 +1,10 @@
 use serde::{Deserialize, Serialize};
+use std::result;
 use strum_macros::EnumIter;
+
+use crate::errors::Error;
+
+pub type Result<T> = result::Result<T, Error>;
 
 #[derive(EnumIter, Serialize, Deserialize, Hash, Clone, Copy, Debug, PartialEq)]
 pub enum PackageManagerKind {

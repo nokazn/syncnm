@@ -31,6 +31,9 @@ pub enum Error {
 
   #[error("Invalid glob pattern: {:?}", .0)]
   InvalidGlobPatternError(&'static str),
+
+  #[error("Error: {:?}", .0)]
+  Any(String),
 }
 
 impl Error {

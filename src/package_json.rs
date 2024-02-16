@@ -9,7 +9,7 @@ use std::{
 use strum::IntoEnumIterator;
 
 use crate::{
-  core::PackageManagerKind,
+  core::{PackageManagerKind, Result},
   errors::{Error, Paths},
   utils::hash::Hashable,
   workspaces::Workspaces,
@@ -52,7 +52,7 @@ struct PackageJson {
 }
 
 impl PackageJson {
-  fn new<T: AsRef<Path>>(base_dir: T) -> Result<Self, Error> {
+  fn new<T: AsRef<Path>>(base_dir: T) -> Result<Self> {
     let file_path = to_package_json_path(base_dir);
     let contents = fs::read_to_string(&file_path);
     match contents {
@@ -99,7 +99,7 @@ struct WorkspacePackage {
 }
 
 impl WorkspacePackage {
-  fn new<T: AsRef<Path>>(base_dir: T, kind: PackageManagerKind) -> Result<Self, Error> {
+  fn new<T: AsRef<Path>>(base_dir: T, kind: PackageManagerKind) -> Result<Self> {
     let base_dir = base_dir.as_ref().to_path_buf();
     if !is_valid_base_dir(&base_dir) {
       return Err(Error::InvalidWorkspaceError(base_dir));
@@ -113,7 +113,7 @@ impl WorkspacePackage {
     })
   }
 
-  fn validate_package_json_fields<T: AsRef<Path>>(self, base_dir: T) -> Result<Self, Error> {
+  fn validate_package_json_fields<T: AsRef<Path>>(self, base_dir: T) -> Result<Self> {
     let package_json_path = to_package_json_path(&base_dir);
     match self.kind {
       PackageManagerKind::Yarn
@@ -185,7 +185,7 @@ impl Hashable for ProjectRoot {
 }
 
 impl ProjectRoot {
-  pub fn new<T: AsRef<Path>>(base_dir: T, kind: PackageManagerKind) -> Result<Self, Error> {
+  pub fn new<T: AsRef<Path>>(base_dir: T, kind: PackageManagerKind) -> Result<Self> {
     let original = PackageJson::new(&base_dir)?;
     Ok(
       Self {
@@ -257,7 +257,7 @@ impl ProjectRoot {
     }
   }
 
-  fn validate_package_json_fields<T: AsRef<Path>>(self, base_dir: T) -> Result<Self, Error> {
+  fn validate_package_json_fields<T: AsRef<Path>>(self, base_dir: T) -> Result<Self> {
     match self.kind {
       PackageManagerKind::Yarn
         if self.original.workspaces.clone().unwrap_or_default().len() > 0
@@ -417,7 +417,7 @@ mod tests {
 
   struct NewTestCase {
     input: (PathBuf, PackageManagerKind),
-    expected: Result<ProjectRoot, Error>,
+    expected: Result<ProjectRoot>,
   }
 
   fn test_new_each(case: NewTestCase) {

@@ -6,7 +6,10 @@ use std::{
 };
 use strum::IntoEnumIterator;
 
-use crate::{core::PackageManagerKind, errors::Error};
+use crate::{
+  core::{PackageManagerKind, Result},
+  errors::Error,
+};
 
 #[derive(Debug, PartialEq)]
 pub struct Lockfile {
@@ -15,7 +18,7 @@ pub struct Lockfile {
 }
 
 impl Lockfile {
-  pub fn new<T: AsRef<Path>>(dir_path: T) -> Result<Self, Error> {
+  pub fn new<T: AsRef<Path>>(dir_path: T) -> Result<Self> {
     match Lockfile::try_to_read_lockfile(&dir_path) {
       Some((kind, path)) => Ok(Self { kind, path }),
       None => Err(Error::NoLockfileError(dir_path.as_ref().to_path_buf())),
@@ -34,10 +37,10 @@ impl Lockfile {
     None
   }
 
-  pub fn generate_hash(&self) -> Result<String, Option<io::Error>> {
-    let mut file = fs::File::open(&self.path)?;
+  pub fn generate_hash(&self) -> Result<String> {
+    let mut file = fs::File::open(&self.path).map_err(|error| Error::Any(error.to_string()))?;
     let mut hasher = Sha256::new();
-    io::copy(&mut file, &mut hasher)?;
+    io::copy(&mut file, &mut hasher).map_err(|error| Error::Any(error.to_string()))?;
     let raw_hash = hasher.finalize();
     let hash = Base64::encode_string(&raw_hash);
     Ok(hash)
