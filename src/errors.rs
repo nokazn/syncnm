@@ -11,6 +11,9 @@ pub enum Error {
   #[error("No such a file or a directory: `{}`", stringify_path(.0))]
   NoEntryError(Paths),
 
+  #[error("Not a directory: `{}`", stringify_path(&Paths::One(.0.to_path_buf())))]
+  NotDirError(PathBuf),
+
   #[error("No lockfile at: `{}`", stringify_path(&Paths::One(.0.to_path_buf())))]
   NoLockfileError(PathBuf),
 

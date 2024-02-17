@@ -1,3 +1,4 @@
+pub mod fs;
 pub mod glob;
 pub mod hash;
 pub mod map;

@@ -1,9 +1,16 @@
 use base64ct::{Base64, Encoding};
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::fmt::Debug;
 
-#[derive(Debug)]
-pub struct Hash(String);
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Clone)]
+pub struct Hash(pub String);
+
+impl Hash {
+  pub fn to_string(&self) -> &str {
+    self.0.as_str()
+  }
+}
 
 pub trait Hashable {
   fn to_bytes(&self) -> serde_json::Result<Vec<u8>>
