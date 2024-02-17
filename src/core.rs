@@ -21,7 +21,7 @@ impl Default for PackageManagerKind {
 }
 
 impl PackageManagerKind {
-  pub fn lockfile_names(&self) -> Vec<&str> {
+  pub fn to_lockfile_names(&self) -> Vec<&str> {
     match self {
       PackageManagerKind::Npm => vec!["package-lock.json"],
       PackageManagerKind::Yarn => vec!["yarn.lock"],
@@ -30,7 +30,7 @@ impl PackageManagerKind {
     }
   }
 
-  pub fn corepack_name(&self) -> Option<&'static str> {
+  pub fn to_corepack_name(&self) -> Option<&'static str> {
     match self {
       PackageManagerKind::Npm => Some("npm"),
       PackageManagerKind::Yarn => Some("yarn"),

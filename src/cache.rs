@@ -76,7 +76,7 @@ pub struct Cache {
 }
 
 impl Cache {
-  pub fn new<T: AsRef<Path>>(base_dir: T, cache_dir: Option<T>) -> Result<Self> {
+  pub fn new(base_dir: impl AsRef<Path>, cache_dir: Option<impl AsRef<Path>>) -> Result<Self> {
     const DEFAULT_CACHE_DIR: &'static str = ".cache/syncnm";
 
     let base_dir = exists_dir(base_dir)?;
@@ -92,7 +92,7 @@ impl Cache {
     })
   }
 
-  pub fn save<T: Into<String>>(&self, key: T) -> Result<()> {
+  pub fn save(&self, key: impl Into<String>) -> Result<()> {
     let key = key.into();
     let cache = self.cache_dir.join(&key);
     create_symlink_dir(&self.base_dir, cache)?;
@@ -106,7 +106,7 @@ impl Cache {
     exists_dir(self.cache_dir.join(current_hash.to_string())).ok()
   }
 
-  pub fn restore<T: Into<String>>(&self, key: T) -> Result<()> {
+  pub fn restore(&self, key: impl Into<String>) -> Result<()> {
     let cache = self.cache_dir.join(key.into());
     if cache.is_dir() {
       if let Some(current) = self.find_current_cache() {

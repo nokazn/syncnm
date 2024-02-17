@@ -7,7 +7,7 @@ use std::{
 
 use crate::{core::Result, errors::Error};
 
-pub fn to_absolute_path<T: AsRef<Path>>(path: T) -> Result<PathBuf> {
+pub fn to_absolute_path(path: impl AsRef<Path>) -> Result<PathBuf> {
   let path = path.as_ref();
   let absolute_path = if path.is_absolute() {
     path.to_path_buf()

@@ -2,11 +2,11 @@ mod cache;
 mod core;
 mod errors;
 mod lockfile;
-mod package_json;
+mod project;
 mod utils;
 mod workspaces;
 
-use crate::{lockfile::Lockfile, package_json::ProjectRoot, utils::hash::Hashable};
+use crate::{lockfile::Lockfile, project::ProjectRoot, utils::hash::Hashable};
 use env_logger;
 
 fn main() {

@@ -17,13 +17,13 @@ use crate::{
 
 type Dependencies = BTreeMap<String, String>;
 
-fn to_package_json_path<T: AsRef<Path>>(base_dir: T) -> PathBuf {
+fn to_package_json_path(base_dir: impl AsRef<Path>) -> PathBuf {
   const PACKAGE_JSON: &str = "package.json";
   base_dir.as_ref().join(PACKAGE_JSON)
 }
 
 /// Ignore `node_modules` directory
-fn is_valid_base_dir<T: AsRef<Path>>(base_dir: T) -> bool {
+fn is_valid_base_dir(base_dir: impl AsRef<Path>) -> bool {
   const IGNORED: [&str; 1] = ["node_modules"];
   let path = base_dir.as_ref().to_path_buf();
   if !path.is_dir() {
@@ -52,7 +52,7 @@ struct PackageJson {
 }
 
 impl PackageJson {
-  fn new<T: AsRef<Path>>(base_dir: T) -> Result<Self> {
+  fn new(base_dir: impl AsRef<Path>) -> Result<Self> {
     let file_path = to_package_json_path(base_dir);
     let contents = fs::read_to_string(&file_path);
     match contents {
@@ -99,7 +99,7 @@ struct WorkspacePackage {
 }
 
 impl WorkspacePackage {
-  fn new<T: AsRef<Path>>(base_dir: T, kind: PackageManagerKind) -> Result<Self> {
+  fn new(base_dir: impl AsRef<Path>, kind: PackageManagerKind) -> Result<Self> {
     let base_dir = base_dir.as_ref().to_path_buf();
     if !is_valid_base_dir(&base_dir) {
       return Err(Error::InvalidWorkspaceError(base_dir));
@@ -113,7 +113,7 @@ impl WorkspacePackage {
     })
   }
 
-  fn validate_package_json_fields<T: AsRef<Path>>(self, base_dir: T) -> Result<Self> {
+  fn validate_package_json_fields(self, base_dir: impl AsRef<Path>) -> Result<Self> {
     let package_json_path = to_package_json_path(&base_dir);
     match self.kind {
       PackageManagerKind::Yarn
@@ -185,7 +185,7 @@ impl Hashable for ProjectRoot {
 }
 
 impl ProjectRoot {
-  pub fn new<T: AsRef<Path>>(base_dir: T, kind: PackageManagerKind) -> Result<Self> {
+  pub fn new(base_dir: impl AsRef<Path>, kind: PackageManagerKind) -> Result<Self> {
     let original = PackageJson::new(&base_dir)?;
     Ok(
       Self {
@@ -198,8 +198,8 @@ impl ProjectRoot {
     )?
   }
 
-  fn resolve_workspaces<T: AsRef<Path>>(
-    base_dir: T,
+  fn resolve_workspaces(
+    base_dir: impl AsRef<Path>,
     kind: PackageManagerKind,
     patterns: Option<Vec<String>>,
   ) -> BTreeMap<String, WorkspacePackage> {
@@ -230,7 +230,7 @@ impl ProjectRoot {
     };
     let regex = {
       let package_managers = PackageManagerKind::iter()
-        .filter_map(|kind| kind.corepack_name())
+        .filter_map(|kind| kind.to_corepack_name())
         .collect::<Vec<_>>()
         .join("|");
       let s = r"^(".to_owned() + &package_managers + r")(?:@.+)?";
@@ -246,7 +246,7 @@ impl ProjectRoot {
     {
       Some(p) => PackageManagerKind::iter()
         .find(|kind| {
-          if let Some(name) = kind.corepack_name() {
+          if let Some(name) = kind.to_corepack_name() {
             name == p
           } else {
             false
@@ -257,7 +257,7 @@ impl ProjectRoot {
     }
   }
 
-  fn validate_package_json_fields<T: AsRef<Path>>(self, base_dir: T) -> Result<Self> {
+  fn validate_package_json_fields(self, base_dir: impl AsRef<Path>) -> Result<Self> {
     match self.kind {
       PackageManagerKind::Yarn
         if self.original.workspaces.clone().unwrap_or_default().len() > 0

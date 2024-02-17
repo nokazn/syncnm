@@ -8,7 +8,7 @@ use crate::{
   errors::{Error, Paths},
 };
 
-pub fn exists_dir<T: AsRef<Path>>(dir: T) -> Result<PathBuf> {
+pub fn exists_dir(dir: impl AsRef<Path>) -> Result<PathBuf> {
   let dir = dir
     .as_ref()
     .to_path_buf()

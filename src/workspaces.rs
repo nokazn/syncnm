@@ -71,7 +71,7 @@ impl PnpmWorkspace {
       .map_err(|_| Error::ParseError(Paths::Multiple(file_paths.to_vec())))
   }
 
-  fn to_pnpm_workspace<T: AsRef<Path>>(base_dir: T) -> [PathBuf; 2] {
+  fn to_pnpm_workspace(base_dir: impl AsRef<Path>) -> [PathBuf; 2] {
     const PNPM_WORKSPACE: [&str; 2] = ["pnpm-workspace.yaml", "pnpm-workspace.yml"];
     let base_dir = base_dir.as_ref().to_path_buf();
     PNPM_WORKSPACE.map(|p| base_dir.join(p))

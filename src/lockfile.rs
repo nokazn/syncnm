@@ -18,16 +18,16 @@ pub struct Lockfile {
 }
 
 impl Lockfile {
-  pub fn new<T: AsRef<Path>>(dir_path: T) -> Result<Self> {
+  pub fn new(dir_path: impl AsRef<Path>) -> Result<Self> {
     match Lockfile::try_to_read_lockfile(&dir_path) {
       Some((kind, path)) => Ok(Self { kind, path }),
       None => Err(Error::NoLockfileError(dir_path.as_ref().to_path_buf())),
     }
   }
 
-  fn try_to_read_lockfile<T: AsRef<Path>>(dir_path: T) -> Option<(PackageManagerKind, PathBuf)> {
+  fn try_to_read_lockfile(dir_path: impl AsRef<Path>) -> Option<(PackageManagerKind, PathBuf)> {
     for kind in PackageManagerKind::iter() {
-      for lockfile in kind.lockfile_names() {
+      for lockfile in kind.to_lockfile_names() {
         let file_path = dir_path.as_ref().join(lockfile);
         if file_path.exists() {
           return Some((kind, file_path));
