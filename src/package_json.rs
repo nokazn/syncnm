@@ -230,7 +230,7 @@ impl ProjectRoot {
     };
     let regex = {
       let package_managers = PackageManagerKind::iter()
-        .filter_map(|kind| kind.name())
+        .filter_map(|kind| kind.corepack_name())
         .collect::<Vec<_>>()
         .join("|");
       let s = r"^(".to_owned() + &package_managers + r")(?:@.+)?";
@@ -246,7 +246,7 @@ impl ProjectRoot {
     {
       Some(p) => PackageManagerKind::iter()
         .find(|kind| {
-          if let Some(name) = kind.name() {
+          if let Some(name) = kind.corepack_name() {
             name == p
           } else {
             false

@@ -30,7 +30,7 @@ impl PackageManagerKind {
     }
   }
 
-  pub fn name(&self) -> Option<&'static str> {
+  pub fn corepack_name(&self) -> Option<&'static str> {
     match self {
       PackageManagerKind::Npm => Some("npm"),
       PackageManagerKind::Yarn => Some("yarn"),
