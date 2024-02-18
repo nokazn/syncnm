@@ -1,4 +1,5 @@
 mod cache;
+mod cmd;
 mod core;
 mod errors;
 mod lockfile;
@@ -17,7 +18,7 @@ fn main() {
   dbg!(&lockfile, &result.unwrap());
 
   // TODO: 後で消す
-  let package_json = ProjectRoot::new("./examples", lockfile.kind).unwrap();
+  let package_json = ProjectRoot::new("./examples", Some(lockfile.kind)).unwrap();
   let result = package_json.generate_hash();
   dbg!(&result.unwrap());
 }

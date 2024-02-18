@@ -150,7 +150,7 @@ impl WorkspacePackage {
 #[derive(Serialize, Deserialize, Hash, Clone, PartialEq, Debug, Default)]
 pub struct ProjectRoot {
   original: PackageJson,
-  kind: PackageManagerKind,
+  pub kind: PackageManagerKind,
   root: PackageDependencies,
   workspaces: BTreeMap<String, WorkspacePackage>,
 }
@@ -185,17 +185,20 @@ impl Hashable for ProjectRoot {
 }
 
 impl ProjectRoot {
-  pub fn new(base_dir: impl AsRef<Path>, kind: PackageManagerKind) -> Result<Self> {
+  pub fn new(base_dir: impl AsRef<Path>, kind: Option<PackageManagerKind>) -> Result<Self> {
     let original = PackageJson::new(&base_dir)?;
-    Ok(
+    let kind = Self::resolve_package_manager_kind(&original, kind);
+    if let Some(kind) = kind {
       Self {
         original: original.clone(),
-        kind: Self::resolve_package_manager_kind(&original, kind),
+        kind,
         root: PackageDependencies::new(original.clone()),
         workspaces: Self::resolve_workspaces(&base_dir, kind, original.workspaces),
       }
-      .validate_package_json_fields(&base_dir),
-    )?
+      .validate_package_json_fields(&base_dir)
+    } else {
+      Err(Error::NoLockfileError(base_dir.as_ref().to_path_buf()))
+    }
   }
 
   fn resolve_workspaces(
@@ -222,8 +225,8 @@ impl ProjectRoot {
 
   fn resolve_package_manager_kind(
     original: &PackageJson,
-    kind: PackageManagerKind,
-  ) -> PackageManagerKind {
+    kind: Option<PackageManagerKind>,
+  ) -> Option<PackageManagerKind> {
     let package_manager = match &original.packageManager {
       Some(package_manager) => package_manager,
       None => return kind,
@@ -252,7 +255,7 @@ impl ProjectRoot {
             false
           }
         })
-        .unwrap_or(kind),
+        .or(kind),
       None => kind,
     }
   }
@@ -351,8 +354,8 @@ mod tests {
   );
 
   struct ResolvePackageManagerKindTestCase {
-    input: (&'static str, PackageManagerKind),
-    expected: PackageManagerKind,
+    input: (&'static str, Option<PackageManagerKind>),
+    expected: Option<PackageManagerKind>,
   }
 
   fn test_resolve_package_manager_kind_each(case: ResolvePackageManagerKindTestCase) {
@@ -362,7 +365,7 @@ mod tests {
     };
     assert_eq!(
       ProjectRoot::resolve_package_manager_kind(&original, case.input.1),
-      PackageManagerKind::from(case.expected)
+      case.expected,
     );
   }
 
@@ -370,53 +373,53 @@ mod tests {
     test_resolve_package_manager_kind,
     test_resolve_package_manager_kind_each,
     "npm" => ResolvePackageManagerKindTestCase {
-      input: ("npm", PackageManagerKind::Bun),
-      expected: PackageManagerKind::Npm,
+      input: ("npm", Some(PackageManagerKind::Bun)),
+      expected: Some(PackageManagerKind::Npm),
     },
     "invalid_npm" => ResolvePackageManagerKindTestCase {
-      input: (" npm", PackageManagerKind::Bun),
-      expected: PackageManagerKind::Bun,
+      input: (" npm", Some(PackageManagerKind::Bun)),
+      expected: Some(PackageManagerKind::Bun),
     },
     "npm_with_valid_version_1" => ResolvePackageManagerKindTestCase {
-      input: ("npm@7.0.0", PackageManagerKind::Bun),
-      expected: PackageManagerKind::Npm,
+      input: ("npm@7.0.0", Some(PackageManagerKind::Bun)),
+      expected: Some(PackageManagerKind::Npm),
     },
     "detect_as_npm_with_invalid_version_1" => ResolvePackageManagerKindTestCase {
-      input: ("npm@", PackageManagerKind::Bun),
-      expected: PackageManagerKind::Npm,
+      input: ("npm@", Some(PackageManagerKind::Bun)),
+      expected: Some(PackageManagerKind::Npm),
     },
     "yarn" => ResolvePackageManagerKindTestCase {
-      input: ("yarn", PackageManagerKind::Bun),
-      expected: PackageManagerKind::Yarn,
+      input: ("yarn", Some(PackageManagerKind::Bun)),
+      expected: Some(PackageManagerKind::Yarn),
     },
     "yarn_with_valid_version_1" => ResolvePackageManagerKindTestCase {
-      input: ("yarn@4.1.0", PackageManagerKind::Bun),
-      expected: PackageManagerKind::Yarn,
+      input: ("yarn@4.1.0", Some(PackageManagerKind::Bun)),
+      expected: Some(PackageManagerKind::Yarn),
     },
     "yarn_with_valid_version_2" => ResolvePackageManagerKindTestCase {
-      input: ("yarn@4.1.0+sha256.81a00df816059803e6b5148acf03ce313cad36b7f6e5af6efa040a15981a6ffb", PackageManagerKind::Bun),
-      expected: PackageManagerKind::Yarn,
+      input: ("yarn@4.1.0+sha256.81a00df816059803e6b5148acf03ce313cad36b7f6e5af6efa040a15981a6ffb", Some(PackageManagerKind::Bun)),
+      expected: Some(PackageManagerKind::Yarn),
     },
     "pnpm" => ResolvePackageManagerKindTestCase {
-      input: ("pnpm", PackageManagerKind::Bun),
-      expected: PackageManagerKind::Pnpm,
+      input: ("pnpm", Some(PackageManagerKind::Bun)),
+      expected: Some(PackageManagerKind::Pnpm),
     },
     "pnpm_with_valid_version" => ResolvePackageManagerKindTestCase {
-      input: ("pnpm@9.0.0-alpha.4+sha256.2dfc103b0859426dc338ab2796cad7bf83ffb92be0fdd79f65f26ffeb5114ce2", PackageManagerKind::Bun),
-      expected: PackageManagerKind::Pnpm,
+      input: ("pnpm@9.0.0-alpha.4+sha256.2dfc103b0859426dc338ab2796cad7bf83ffb92be0fdd79f65f26ffeb5114ce2", Some(PackageManagerKind::Bun)),
+      expected: Some(PackageManagerKind::Pnpm),
     },
     "detect_as_pnpm_with_invalid_semver" => ResolvePackageManagerKindTestCase {
-      input: ("pnpm@8", PackageManagerKind::Bun),
-      expected: PackageManagerKind::Pnpm,
+      input: ("pnpm@8", Some(PackageManagerKind::Bun)),
+      expected: Some(PackageManagerKind::Pnpm),
     },
     "bun_is_not_supported_by_corepack" => ResolvePackageManagerKindTestCase {
-      input: ("bun", PackageManagerKind::Npm),
-      expected: PackageManagerKind::Npm,
+      input: ("bun", Some(PackageManagerKind::Npm)),
+      expected: Some(PackageManagerKind::Npm),
     },
   );
 
   struct NewTestCase {
-    input: (PathBuf, PackageManagerKind),
+    input: (PathBuf, Option<PackageManagerKind>),
     expected: Result<ProjectRoot>,
   }
 
@@ -440,7 +443,7 @@ mod tests {
     "npm" => NewTestCase {
       input: (
         PathBuf::from("tests/fixtures/workspaces/npm"),
-        PackageManagerKind::Npm,
+        Some(PackageManagerKind::Npm),
       ),
       expected: {
         let dev_dependencies = btree_map!(
@@ -472,7 +475,7 @@ mod tests {
     "yarn" => NewTestCase {
       input: (
         PathBuf::from("tests/fixtures/workspaces/yarn"),
-        PackageManagerKind::Yarn,
+        Some(PackageManagerKind::Yarn),
       ),
       expected: {
         let dev_dependencies = btree_map!(
@@ -518,14 +521,14 @@ mod tests {
     "yarn_private_false" => NewTestCase {
       input: (
         PathBuf::from("tests/fixtures/workspaces/yarn_private_false"),
-        PackageManagerKind::Yarn,
+        Some(PackageManagerKind::Yarn),
       ),
       expected:Err(Error::InvalidPackageJsonPrivateForYarnError(PathBuf::from("tests/fixtures/workspaces/yarn_private_false/package.json")))
     },
     "pnpm" => NewTestCase {
       input: (
         PathBuf::from("tests/fixtures/workspaces/pnpm"),
-        PackageManagerKind::Pnpm,
+        Some(PackageManagerKind::Pnpm),
       ),
       expected: {
         let dev_dependencies = btree_map!(
@@ -557,7 +560,7 @@ mod tests {
     "bun" => NewTestCase {
       input: (
         PathBuf::from("tests/fixtures/workspaces/bun"),
-        PackageManagerKind::Bun,
+        Some(PackageManagerKind::Bun),
       ),
       expected: {
         let dev_dependencies = btree_map!(

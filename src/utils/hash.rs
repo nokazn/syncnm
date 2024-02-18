@@ -1,10 +1,18 @@
 use base64ct::{Base64, Encoding};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::fmt::Debug;
+use std::fmt::{Debug, Display};
+
+use crate::{core::Result, errors::Error};
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Clone)]
 pub struct Hash(pub String);
+
+impl Display for Hash {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{}", self.0)
+  }
+}
 
 impl Hash {
   pub fn to_string(&self) -> &str {
@@ -21,16 +29,19 @@ pub trait Hashable {
     Ok(json.into_bytes())
   }
 
-  fn generate_hash(&self) -> serde_json::Result<Hash>
+  fn generate_hash(&self) -> Result<Hash>
   where
     Self: serde::Serialize + Debug,
   {
-    self.to_bytes().map(|bytes| {
-      let mut generator = Sha256::new();
-      generator.update(bytes);
-      let raw_hash = generator.finalize();
-      let hash = Base64::encode_string(&raw_hash);
-      Hash(hash)
-    })
+    self
+      .to_bytes()
+      .map(|bytes| {
+        let mut generator = Sha256::new();
+        generator.update(bytes);
+        let raw_hash = generator.finalize();
+        let hash = Base64::encode_string(&raw_hash);
+        Hash(hash)
+      })
+      .map_err(|error| Error::Any(error.to_string()))
   }
 }

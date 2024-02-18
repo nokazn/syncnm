@@ -9,6 +9,7 @@ use strum::IntoEnumIterator;
 use crate::{
   core::{PackageManagerKind, Result},
   errors::Error,
+  utils::hash::Hash,
 };
 
 #[derive(Debug, PartialEq)]
@@ -37,13 +38,13 @@ impl Lockfile {
     None
   }
 
-  pub fn generate_hash(&self) -> Result<String> {
+  pub fn generate_hash(&self) -> Result<Hash> {
     let mut file = fs::File::open(&self.path).map_err(|error| Error::Any(error.to_string()))?;
     let mut hasher = Sha256::new();
     io::copy(&mut file, &mut hasher).map_err(|error| Error::Any(error.to_string()))?;
     let raw_hash = hasher.finalize();
     let hash = Base64::encode_string(&raw_hash);
-    Ok(hash)
+    Ok(Hash(hash))
   }
 }
 
@@ -118,7 +119,7 @@ mod tests {
   fn test_generate_hash_each(case: GenerateHashTestCase) {
     let lockfile = Lockfile::new(case.input).unwrap();
     let hash = lockfile.generate_hash().unwrap();
-    assert_eq!(hash, case.expected);
+    assert_eq!(hash, Hash(case.expected.to_string()));
   }
 
   test_each!(
