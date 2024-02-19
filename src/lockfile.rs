@@ -1,4 +1,4 @@
-use base64ct::{Base64, Encoding};
+use data_encoding::BASE32;
 use sha2::{Digest, Sha256};
 use std::{
   fs, io,
@@ -9,6 +9,7 @@ use strum::IntoEnumIterator;
 use crate::{
   core::{PackageManagerKind, Result},
   errors::Error,
+  utils::hash::Hash,
 };
 
 #[derive(Debug, PartialEq)]
@@ -37,13 +38,13 @@ impl Lockfile {
     None
   }
 
-  pub fn generate_hash(&self) -> Result<String> {
+  pub fn generate_hash(&self) -> Result<Hash> {
     let mut file = fs::File::open(&self.path).map_err(|error| Error::Any(error.to_string()))?;
     let mut hasher = Sha256::new();
     io::copy(&mut file, &mut hasher).map_err(|error| Error::Any(error.to_string()))?;
     let raw_hash = hasher.finalize();
-    let hash = Base64::encode_string(&raw_hash);
-    Ok(hash)
+    let hash = BASE32.encode(&raw_hash);
+    Ok(Hash(hash))
   }
 }
 
@@ -118,7 +119,7 @@ mod tests {
   fn test_generate_hash_each(case: GenerateHashTestCase) {
     let lockfile = Lockfile::new(case.input).unwrap();
     let hash = lockfile.generate_hash().unwrap();
-    assert_eq!(hash, case.expected);
+    assert_eq!(hash, Hash(case.expected.to_string()));
   }
 
   test_each!(
@@ -126,19 +127,19 @@ mod tests {
     test_generate_hash_each,
     "npm" => GenerateHashTestCase {
       input: "./tests/fixtures/lockfile/npm",
-      expected: "uMrl01Qel1UU8Z0ft+9mWad4G4g0Vjwye3+gVGi7FNM=",
+      expected: "XDFOLU2UD2LVKFHRTUP3P33GLGTXQG4IGRLDYMT3P6QFI2F3CTJQ====",
     },
     "yarn" => GenerateHashTestCase {
       input: "./tests/fixtures/lockfile/yarn",
-      expected: "dmy8HKrg+5lrLw8qnSanCzazm+5zgxA6la9Z2zh7GJ0=",
+      expected: "OZWLYHFK4D5ZS2ZPB4VJ2JVHBM3LHG7OOOBRAOUVV5M5WOD3DCOQ====",
     },
     "pnpm" => GenerateHashTestCase {
       input: "./tests/fixtures/lockfile/pnpm",
-      expected: "5hzH5KU3P+PfcvEwLVd5mIJrFInY5SfHCCeoPCspqUs=",
+      expected: "4YOMPZFFG476HX3S6EYC2V3ZTCBGWFEJ3DSSPRYIE6UDYKZJVFFQ====",
     },
     "bun" => GenerateHashTestCase {
       input: "./tests/fixtures/lockfile/bun",
-      expected: "hQM/8tFjhA/WkaV3dpQAEvNWVsyou1GpqyhIxwfKiTA=",
+      expected: "QUBT74WRMOCA7VURUV3XNFAACLZVMVWMVC5VDKNLFBEMOB6KREYA====",
     },
   );
 }

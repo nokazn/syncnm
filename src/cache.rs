@@ -1,27 +1,26 @@
 use std::collections::HashMap;
-use std::fs;
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
 use crate::core::Result;
-use crate::errors::{Error, Paths};
-use crate::utils::fs::{create_symlink_dir, exists_dir, rename_dir, write};
+use crate::errors::{to_error, Error, Paths};
+use crate::utils::fs;
 use crate::utils::hash::Hash;
 
-#[derive(Deserialize, Serialize, Clone, PartialEq)]
+#[derive(Deserialize, Serialize, Clone, PartialEq, Debug, Default)]
 struct CacheMeta {
   branch: String,
   commit: String,
 }
 
-#[derive(Deserialize, Serialize, Clone, PartialEq)]
+#[derive(Deserialize, Serialize, Clone, PartialEq, Debug, Default)]
 struct MetadataJson {
   current_hash: Option<Hash>,
   caches: HashMap<Hash, CacheMeta>,
 }
 
-#[derive(PartialEq, Clone)]
+#[derive(PartialEq, Clone, Debug, Default)]
 struct Metadata {
   contents: MetadataJson,
   file_path: PathBuf,
@@ -39,7 +38,15 @@ impl Metadata {
           file_path: file_path.clone(),
         })
         .map_err(|_| Error::ParseError(Paths::One(file_path))),
-      Err(_) => Err(Error::NoEntryError(Paths::One(file_path))),
+      Err(_) => {
+        let v = Self {
+          file_path: file_path.clone(),
+          ..Self::default()
+        };
+        let contents = serde_json::to_string(&v.contents).map_err(to_error)?;
+        fs::write(&file_path, &contents)?;
+        Ok(v)
+      }
     }
   }
 
@@ -58,7 +65,7 @@ impl Metadata {
     };
     let json = serde_json::to_string(&contents)
       .map_err(|_| Error::ParseError(Paths::One(self.file_path.clone())))?;
-    write(&self.file_path, json)?;
+    fs::write(&self.file_path, json)?;
     Ok(Self {
       contents,
       ..self.clone()
@@ -72,22 +79,29 @@ impl Metadata {
 #[derive(Debug, PartialEq)]
 pub struct Cache {
   base_dir: PathBuf,
+  target_dir: PathBuf,
   cache_dir: PathBuf,
 }
 
 impl Cache {
-  pub fn new(base_dir: impl AsRef<Path>, cache_dir: Option<impl AsRef<Path>>) -> Result<Self> {
+  pub fn new(
+    base_dir: impl AsRef<Path>,
+    target_dir: impl AsRef<Path>,
+    cache_dir: Option<impl AsRef<Path>>,
+  ) -> Result<Self> {
     const DEFAULT_CACHE_DIR: &'static str = ".cache/syncnm";
 
-    let base_dir = exists_dir(base_dir)?;
-    let cache_dir = exists_dir(
-      cache_dir
-        .map(|c| c.as_ref().to_path_buf())
-        .unwrap_or(base_dir.join(DEFAULT_CACHE_DIR)),
-    )?;
+    let base_dir = fs::exists_dir(base_dir)?;
+    let target_dir = fs::exists_dir(target_dir)?;
+    let cache_dir = cache_dir
+      .map(|c| c.as_ref().to_path_buf())
+      .unwrap_or(base_dir.join(DEFAULT_CACHE_DIR));
+    let cache_dir = fs::exists_dir(&cache_dir)
+      .or_else(|_| fs::make_dir_if_not_exists(&cache_dir).map(|_| cache_dir))?;
 
     Ok(Self {
       base_dir,
+      target_dir,
       cache_dir,
     })
   }
@@ -95,26 +109,27 @@ impl Cache {
   pub fn save(&self, key: impl Into<String>) -> Result<()> {
     let key = key.into();
     let cache = self.cache_dir.join(&key);
-    create_symlink_dir(&self.base_dir, cache)?;
+    fs::create_symlink_dir(&self.target_dir, cache).or::<Error>(Ok(()))?;
     let metadata = Metadata::new(&self.cache_dir)?;
+    // TODO: branch and commit
     metadata.update(Hash(key), "branch".to_string(), "commit".to_string())?;
     Ok(())
   }
 
   fn find_current_cache(&self) -> Option<PathBuf> {
     let current_hash = Metadata::new(&self.cache_dir).ok()?.contents.current_hash?;
-    exists_dir(self.cache_dir.join(current_hash.to_string())).ok()
+    fs::exists_dir(self.cache_dir.join(current_hash.to_string())).ok()
   }
 
   pub fn restore(&self, key: impl Into<String>) -> Result<()> {
     let cache = self.cache_dir.join(key.into());
     if cache.is_dir() {
       if let Some(current) = self.find_current_cache() {
-        rename_dir(&self.base_dir, current)
+        fs::rename_dir(&self.target_dir, current)
           .map_err(|error| error.log_warn(Some("Failed to save the current cache")))
           .unwrap_or(());
       }
-      rename_dir(cache, &self.base_dir)
+      fs::rename_dir(cache, &self.target_dir)
     } else {
       Err(Error::NotDirError(cache))
     }

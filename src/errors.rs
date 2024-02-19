@@ -90,3 +90,7 @@ fn stringify_path(paths: &Paths) -> String {
       .join(", "),
   }
 }
+
+pub fn to_error<E: Debug>(error: E) -> Error {
+  Error::Any(format!("{:?}", error))
+}
