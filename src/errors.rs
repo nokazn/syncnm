@@ -7,37 +7,37 @@ use crate::{package_manager::PackageManager, utils::path::to_absolute_path};
 #[derive(Debug, Error, PartialEq)]
 pub enum Error {
   #[error("Cannot access to a file or a directory: `{}`", stringify_path(&Paths::One(.0.to_path_buf())))]
-  NotAccessibleError(PathBuf),
+  NotAccessible(PathBuf),
 
   #[error("No such a file or a directory: `{}`", stringify_path(.0))]
-  NoEntryError(Paths),
+  NoEntry(Paths),
 
   #[error("Not a directory: `{}`", stringify_path(&Paths::One(.0.to_path_buf())))]
-  NotDirError(PathBuf),
+  NotDir(PathBuf),
 
   #[error("No lockfile at: `{}`", stringify_path(&Paths::One(.0.to_path_buf())))]
-  NoLockfileError(PathBuf),
+  NoLockfile(PathBuf),
 
   #[error("Invalid workspace: `{}`", stringify_path(&Paths::One(.0.to_path_buf())))]
-  InvalidWorkspaceError(PathBuf),
+  InvalidWorkspace(PathBuf),
 
   #[error("\"name\" or \"version\" are missing in: `{}`", stringify_path(&Paths::One(.0.to_path_buf())))]
-  InvalidPackageJsonFieldsForYarnError(PathBuf),
+  InvalidPackageJsonFieldsForYarn(PathBuf),
 
   #[error("\"private\" should be set to `true`: `{}`", stringify_path(&Paths::One(.0.to_path_buf())))]
-  InvalidPackageJsonPrivateForYarnError(PathBuf),
+  InvalidPackageJsonPrivateForYarn(PathBuf),
 
   #[error("\"name\" is missing in: `{}`", stringify_path(&Paths::One(.0.to_path_buf())))]
-  InvalidPackageJsonFieldsForBunError(PathBuf),
+  InvalidPackageJsonFieldsForBun(PathBuf),
 
   #[error("Failed to parse: `{}`", stringify_path(.0))]
-  ParseError(Paths),
+  Parse(Paths),
 
   #[error("Invalid glob pattern: {:?}", .0)]
-  InvalidGlobPatternError(&'static str),
+  InvalidGlobPattern(&'static str),
 
   #[error("Failed to install dependencies by `{}` at: `{:?}`", stringify_install_command(.0), .1)]
-  FailedToInstallDependenciesError(PackageManager, PathBuf),
+  FailedToInstallDependencies(PackageManager, PathBuf),
 
   #[error("Error: {:?}", .0)]
   Any(String),

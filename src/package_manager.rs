@@ -49,27 +49,22 @@ impl PackageManager {
     if output.status.success() {
       Ok(())
     } else {
-      Err(Error::FailedToInstallDependenciesError(self, base_dir))
+      Err(Error::FailedToInstallDependencies(self, base_dir))
     }
   }
 }
 
-#[derive(EnumIter, Serialize, Deserialize, Hash, Clone, Copy, Debug, PartialEq)]
+#[derive(EnumIter, Serialize, Deserialize, Hash, Clone, Copy, Debug, PartialEq, Default)]
 pub enum PackageManagerKind {
+  #[default]
   Npm,
   Yarn,
   Pnpm,
   Bun,
 }
 
-impl Default for PackageManagerKind {
-  fn default() -> Self {
-    PackageManagerKind::Npm
-  }
-}
-
 impl PackageManagerKind {
-  pub fn to_lockfile_names(&self) -> Vec<&str> {
+  pub fn to_lockfile_names(self) -> Vec<&'static str> {
     match self {
       PackageManagerKind::Npm => vec!["package-lock.json"],
       PackageManagerKind::Yarn => vec!["yarn.lock"],
@@ -78,7 +73,7 @@ impl PackageManagerKind {
     }
   }
 
-  pub fn to_corepack_name(&self) -> Option<&'static str> {
+  pub fn to_corepack_name(self) -> Option<&'static str> {
     match self {
       PackageManagerKind::Npm => Some("npm"),
       PackageManagerKind::Yarn => Some("yarn"),

@@ -58,9 +58,10 @@ impl PackageJson {
     let file_path = to_package_json_path(base_dir);
     let contents = fs::read_to_string(&file_path);
     match contents {
-      Ok(contents) => serde_json::from_str::<Self>(&contents)
-        .map_err(|_| Error::ParseError(Paths::One(file_path))),
-      Err(_) => Err(Error::NoEntryError(Paths::One(file_path))),
+      Ok(contents) => {
+        serde_json::from_str::<Self>(&contents).map_err(|_| Error::Parse(Paths::One(file_path)))
+      }
+      Err(_) => Err(Error::NoEntry(Paths::One(file_path))),
     }
   }
 }
@@ -104,7 +105,7 @@ impl WorkspacePackage {
   fn new(base_dir: impl AsRef<Path>, kind: PackageManagerKind) -> Result<Self> {
     let base_dir = base_dir.as_ref().to_path_buf();
     if !is_valid_base_dir(&base_dir) {
-      return Err(Error::InvalidWorkspaceError(base_dir));
+      return Err(Error::InvalidWorkspace(base_dir));
     }
     let original = PackageJson::new(&base_dir)?;
     Ok(Self {
@@ -121,13 +122,11 @@ impl WorkspacePackage {
       PackageManagerKind::Yarn
         if self.original.name.is_none() || self.original.version.is_none() =>
       {
-        Err(Error::InvalidPackageJsonFieldsForYarnError(
-          package_json_path,
-        ))
+        Err(Error::InvalidPackageJsonFieldsForYarn(package_json_path))
       }
-      PackageManagerKind::Bun if self.original.name.is_none() => Err(
-        Error::InvalidPackageJsonFieldsForBunError(package_json_path),
-      ),
+      PackageManagerKind::Bun if self.original.name.is_none() => {
+        Err(Error::InvalidPackageJsonFieldsForBun(package_json_path))
+      }
       _ => Ok(self),
     }
   }
@@ -199,7 +198,7 @@ impl ProjectRoot {
       }
       .validate_package_json_fields(&base_dir)
     } else {
-      Err(Error::NoLockfileError(base_dir.as_ref().to_path_buf()))
+      Err(Error::NoLockfile(base_dir.as_ref().to_path_buf()))
     }
   }
 
@@ -212,7 +211,7 @@ impl ProjectRoot {
     let mut workspace_map = BTreeMap::<String, WorkspacePackage>::new();
     for path in workspaces.packages.iter() {
       if let Ok(w) =
-        WorkspacePackage::new(&path, kind).and_then(|w| w.validate_package_json_fields(path))
+        WorkspacePackage::new(path, kind).and_then(|w| w.validate_package_json_fields(path))
       {
         let (name, fallback) = w.get_package_name();
         if workspace_map.get(&name).is_none() {
@@ -245,7 +244,7 @@ impl ProjectRoot {
       }
     };
     match regex
-      .captures(&package_manager)
+      .captures(package_manager)
       .and_then(|c| c.get(1))
       .map(|m| m.as_str())
     {
@@ -265,12 +264,16 @@ impl ProjectRoot {
   fn validate_package_json_fields(self, base_dir: impl AsRef<Path>) -> Result<Self> {
     match self.kind {
       PackageManagerKind::Yarn
-        if self.original.workspaces.clone().unwrap_or_default().len() > 0
+        if !self
+          .original
+          .workspaces
+          .clone()
+          .unwrap_or_default()
+          .is_empty()
           && !self.original.private.unwrap_or_default() =>
       {
         Err(
-          Error::InvalidPackageJsonPrivateForYarnError(to_package_json_path(&base_dir))
-            .log_error(None),
+          Error::InvalidPackageJsonPrivateForYarn(to_package_json_path(&base_dir)).log_error(None),
         )
       }
       _ => Ok(self),
@@ -522,7 +525,7 @@ mod tests {
         PathBuf::from("tests/fixtures/workspaces/yarn_private_false"),
         Some(PackageManagerKind::Yarn),
       ),
-      expected:Err(Error::InvalidPackageJsonPrivateForYarnError(PathBuf::from("tests/fixtures/workspaces/yarn_private_false/package.json")))
+      expected:Err(Error::InvalidPackageJsonPrivateForYarn(PathBuf::from("tests/fixtures/workspaces/yarn_private_false/package.json")))
     },
     "pnpm" => NewTestCase {
       input: (

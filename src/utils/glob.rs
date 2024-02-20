@@ -20,13 +20,7 @@ pub fn collect(
         if negate {
           entries = entries
             .iter()
-            .filter_map(|entry| {
-              if matched.iter().any(|p| entry.starts_with(p)) {
-                None
-              } else {
-                Some(entry)
-              }
-            })
+            .filter(|entry| !matched.iter().any(|p| entry.starts_with(p)))
             .cloned()
             .collect::<Vec<_>>();
         } else {
@@ -42,7 +36,7 @@ pub fn collect(
     result
   };
 
-  run_in_base_dir(&base_dir, collect, None)
+  run_in_base_dir(base_dir, collect, None)
 }
 
 fn resolve_glob(pattern: String, enable_negate: bool) -> (Option<Vec<PathBuf>>, bool) {
@@ -52,7 +46,7 @@ fn resolve_glob(pattern: String, enable_negate: bool) -> (Option<Vec<PathBuf>>, 
       let entries = entries
         .filter_map(|entry| {
           if let Err(error) = &entry {
-            Error::NotAccessibleError(error.path().to_path_buf())
+            Error::NotAccessible(error.path().to_path_buf())
               .log_debug(error)
               .log_warn(None);
           }
@@ -62,7 +56,7 @@ fn resolve_glob(pattern: String, enable_negate: bool) -> (Option<Vec<PathBuf>>, 
       (Some(entries), negate)
     }
     Err(error) => {
-      Error::InvalidGlobPatternError(error.msg).log_warn(None);
+      Error::InvalidGlobPattern(error.msg).log_warn(None);
       (None, negate)
     }
   }

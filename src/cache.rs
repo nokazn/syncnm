@@ -27,7 +27,7 @@ struct Metadata {
 
 impl Metadata {
   pub fn new(cache_dir: impl AsRef<Path>) -> Result<Self> {
-    const FILE_NAME: &'static str = "metadata.json";
+    const FILE_NAME: &str = "metadata.json";
     let file_path = cache_dir.as_ref().join(FILE_NAME);
     let contents = fs::read_to_string(&file_path);
     match contents {
@@ -36,14 +36,14 @@ impl Metadata {
           contents,
           file_path: file_path.clone(),
         })
-        .map_err(|_| Error::ParseError(Paths::One(file_path))),
+        .map_err(|_| Error::Parse(Paths::One(file_path))),
       Err(_) => {
         let v = Self {
           file_path: file_path.clone(),
           ..Self::default()
         };
         let contents = serde_json::to_string(&v.contents).map_err(to_error)?;
-        fs::write(&file_path, &contents)?;
+        fs::write(&file_path, contents)?;
         Ok(v)
       }
     }
@@ -63,7 +63,7 @@ impl Metadata {
       },
     };
     let json = serde_json::to_string(&contents)
-      .map_err(|_| Error::ParseError(Paths::One(self.file_path.clone())))?;
+      .map_err(|_| Error::Parse(Paths::One(self.file_path.clone())))?;
     fs::write(&self.file_path, json)?;
     Ok(Self {
       contents,
@@ -88,7 +88,7 @@ impl Cache {
     target_dir: impl AsRef<Path>,
     cache_dir: Option<impl AsRef<Path>>,
   ) -> Result<Self> {
-    const DEFAULT_CACHE_DIR: &'static str = ".cache/syncnm";
+    const DEFAULT_CACHE_DIR: &str = ".cache/syncnm";
 
     let base_dir = fs::exists_dir(base_dir)?;
     let target_dir = fs::exists_dir(target_dir)?;
@@ -130,7 +130,7 @@ impl Cache {
       }
       fs::rename_dir(cache, &self.target_dir)
     } else {
-      Err(Error::NotDirError(cache))
+      Err(Error::NotDir(cache))
     }
   }
 }

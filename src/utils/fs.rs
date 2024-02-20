@@ -13,11 +13,11 @@ pub fn exists_dir(dir: impl AsRef<Path>) -> Result<PathBuf> {
     .as_ref()
     .to_path_buf()
     .canonicalize()
-    .map_err(|_| Error::NoEntryError(Paths::One(dir.as_ref().to_path_buf())))?;
+    .map_err(|_| Error::NoEntry(Paths::One(dir.as_ref().to_path_buf())))?;
   if dir.is_dir() {
     Ok(dir)
   } else {
-    Err(Error::NotDirError(dir))
+    Err(Error::NotDir(dir))
   }
 }
 
@@ -30,9 +30,7 @@ pub fn make_dir_if_not_exists(dir: impl AsRef<Path>) -> Result<()> {
 
 pub fn rename_dir(from: impl AsRef<Path>, to: impl AsRef<Path>) -> Result<()> {
   let to = to.as_ref().to_path_buf();
-  let parent = &to
-    .parent()
-    .ok_or(Error::NoEntryError(Paths::One(to.clone())))?;
+  let parent = &to.parent().ok_or(Error::NoEntry(Paths::One(to.clone())))?;
   make_dir_if_not_exists(parent)?;
   fs::rename(&from, &to).map_err(to_error)
 }
@@ -40,9 +38,7 @@ pub fn rename_dir(from: impl AsRef<Path>, to: impl AsRef<Path>) -> Result<()> {
 #[cfg(unix)]
 pub fn create_symlink_dir(from: impl AsRef<Path>, to: impl AsRef<Path>) -> Result<()> {
   let to = to.as_ref().to_path_buf();
-  let parent = &to
-    .parent()
-    .ok_or(Error::NoEntryError(Paths::One(to.clone())))?;
+  let parent = &to.parent().ok_or(Error::NoEntry(Paths::One(to.clone())))?;
   make_dir_if_not_exists(parent)?;
   std::os::unix::fs::symlink(&from, &to).map_err(to_error)
 }
@@ -50,9 +46,7 @@ pub fn create_symlink_dir(from: impl AsRef<Path>, to: impl AsRef<Path>) -> Resul
 #[cfg(windows)]
 pub fn create_symlink_dir(from: impl AsRef<Path>, to: impl AsRef<Path>) -> Result<()> {
   let to = to.as_ref().to_path_buf();
-  let parent = &to
-    .parent()
-    .ok_or(Error::NoEntryError(Paths::One(to.clone())))?;
+  let parent = &to.parent().ok_or(Error::NoEntry(Paths::One(to.clone())))?;
   make_dir_if_not_exists(parent)?;
   std::os::windows::fs::symlink_dir(&from, &to).unwrap();
 }

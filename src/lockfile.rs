@@ -24,7 +24,7 @@ impl Lockfile {
   pub fn new(dir_path: impl AsRef<Path>) -> Result<Self> {
     match Lockfile::try_to_read_lockfile(&dir_path) {
       Some((kind, path)) => Ok(Self { kind, path }),
-      None => Err(Error::NoLockfileError(dir_path.as_ref().to_path_buf())),
+      None => Err(Error::NoLockfile(dir_path.as_ref().to_path_buf())),
     }
   }
 

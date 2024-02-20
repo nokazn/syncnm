@@ -15,7 +15,7 @@ pub fn to_absolute_path(path: impl AsRef<Path>) -> Result<PathBuf> {
   } else {
     current_dir()
       .map_err(|error| {
-        Error::NotAccessibleError(PathBuf::from("./"))
+        Error::NotAccessible(PathBuf::from("./"))
           .log_debug(error)
           .log_warn(None)
       })?
@@ -32,7 +32,7 @@ where
   U: Default,
 {
   let on_io_error = |error: io::Error| {
-    Error::NotAccessibleError(base_dir.as_ref().to_path_buf())
+    Error::NotAccessible(base_dir.as_ref().to_path_buf())
       .log_debug(&error)
       .log_error(None);
     fallback.unwrap_or_default()
@@ -51,7 +51,7 @@ where
 
   let result = f();
 
-  if let Err(error) = set_current_dir(&cwd) {
+  if let Err(error) = set_current_dir(cwd) {
     on_io_error(error);
   }
 

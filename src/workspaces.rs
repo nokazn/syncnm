@@ -69,7 +69,7 @@ impl PnpmWorkspace {
     let file_paths = Self::to_pnpm_workspace(base_dir);
     let contents = Self::read_to_string(&file_paths)?;
     serde_yaml::from_str::<Self>(&contents)
-      .map_err(|_| Error::ParseError(Paths::Multiple(file_paths.to_vec())))
+      .map_err(|_| Error::Parse(Paths::Multiple(file_paths.to_vec())))
   }
 
   fn to_pnpm_workspace(base_dir: impl AsRef<Path>) -> [PathBuf; 2] {
@@ -80,11 +80,11 @@ impl PnpmWorkspace {
 
   fn read_to_string(file_paths: &[PathBuf; 2]) -> Result<String> {
     for file_path in file_paths.iter() {
-      if let Ok(contents) = fs::read_to_string(&file_path) {
+      if let Ok(contents) = fs::read_to_string(file_path) {
         return Ok(contents);
       }
     }
-    Err(Error::NoEntryError(Paths::Multiple(file_paths.to_vec())))
+    Err(Error::NoEntry(Paths::Multiple(file_paths.to_vec())))
   }
 }
 
