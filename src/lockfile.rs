@@ -8,7 +8,7 @@ use strum::IntoEnumIterator;
 
 use crate::{
   core::{PackageManagerKind, Result},
-  errors::Error,
+  errors::{to_error, Error},
   utils::hash::Hash,
 };
 
@@ -39,9 +39,9 @@ impl Lockfile {
   }
 
   pub fn generate_hash(&self) -> Result<Hash> {
-    let mut file = fs::File::open(&self.path).map_err(|error| Error::Any(error.to_string()))?;
+    let mut file = fs::File::open(&self.path).map_err(to_error)?;
     let mut hasher = Sha256::new();
-    io::copy(&mut file, &mut hasher).map_err(|error| Error::Any(error.to_string()))?;
+    io::copy(&mut file, &mut hasher).map_err(to_error)?;
     let raw_hash = hasher.finalize();
     let hash = BASE32.encode(&raw_hash);
     Ok(Hash(hash))

@@ -1,7 +1,7 @@
 use std::{fmt::Debug, path::PathBuf};
 use thiserror::Error;
 
-use crate::utils::path::to_absolute_path;
+use crate::{package_manager::PackageManager, utils::path::to_absolute_path};
 
 #[derive(Debug, Error, PartialEq)]
 pub enum Error {
@@ -34,6 +34,9 @@ pub enum Error {
 
   #[error("Invalid glob pattern: {:?}", .0)]
   InvalidGlobPatternError(&'static str),
+
+  #[error("Failed to install dependencies by `{}` at: `{:?}`", stringify_install_command(.0), .1)]
+  FailedToInstallDependenciesError(PackageManager, PathBuf),
 
   #[error("Error: {:?}", .0)]
   Any(String),
@@ -89,6 +92,13 @@ fn stringify_path(paths: &Paths) -> String {
       .collect::<Vec<_>>()
       .join(", "),
   }
+}
+
+fn stringify_install_command(package_manager: &PackageManager) -> String {
+  format!(
+    "{} {}",
+    package_manager.executable_name, package_manager.install_sub_command
+  )
 }
 
 pub fn to_error<E: Debug>(error: E) -> Error {

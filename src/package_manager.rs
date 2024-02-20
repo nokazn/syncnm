@@ -2,14 +2,14 @@ use std::{path::Path, process::Command};
 
 use crate::{
   core::{PackageManagerKind, Result},
-  errors::Error,
+  errors::{to_error, Error},
   utils::path::to_absolute_path,
 };
 
 #[derive(Debug, PartialEq)]
 pub struct PackageManager {
-  executable_name: String,
-  install_sub_command: String,
+  pub executable_name: String,
+  pub install_sub_command: String,
 }
 
 impl From<PackageManagerKind> for PackageManager {
@@ -36,20 +36,17 @@ impl PackageManager {
     })
   }
 
-  pub fn install(&self, base_dir: impl AsRef<Path>) -> Result<()> {
+  pub fn install(self, base_dir: impl AsRef<Path>) -> Result<()> {
     let base_dir = to_absolute_path(base_dir)?;
     let output = Command::new(&self.executable_name)
       .arg(&self.install_sub_command)
       .current_dir(&base_dir)
       .output()
-      .map_err(|error| Error::Any(error.to_string()))?;
+      .map_err(to_error)?;
     if output.status.success() {
       Ok(())
     } else {
-      Err(Error::Any(format!(
-        "Failed to install dependencies in {}",
-        &base_dir.to_string_lossy()
-      )))
+      Err(Error::FailedToInstallDependenciesError(self, base_dir))
     }
   }
 }
