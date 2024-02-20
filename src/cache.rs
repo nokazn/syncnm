@@ -5,8 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::core::Result;
 use crate::errors::{to_error, Error, Paths};
-use crate::utils::fs;
-use crate::utils::hash::Hash;
+use crate::utils::{fs, hash::Hash};
 
 #[derive(Deserialize, Serialize, Clone, PartialEq, Debug, Default)]
 struct CacheMeta {

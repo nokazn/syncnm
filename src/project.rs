@@ -1,16 +1,18 @@
-use regex::Regex;
-use serde::{Deserialize, Serialize};
 use std::{
   collections::BTreeMap,
   fs,
   hash::Hash,
   path::{Path, PathBuf},
 };
+
+use regex::Regex;
+use serde::{Deserialize, Serialize};
 use strum::IntoEnumIterator;
 
 use crate::{
-  core::{PackageManagerKind, Result},
+  core::Result,
   errors::{Error, Paths},
+  package_manager::PackageManagerKind,
   utils::hash::Hashable,
   workspaces::Workspaces,
 };
@@ -278,12 +280,9 @@ impl ProjectRoot {
 
 #[cfg(test)]
 mod tests {
-  use tempfile::TempDir;
-
   use super::*;
-  use crate::{
-    btree_map, core::PackageManagerKind, test_each, test_each_serial, utils::path::to_absolute_path,
-  };
+  use crate::{btree_map, test_each, test_each_serial, utils::path::to_absolute_path};
+  use tempfile::TempDir;
 
   struct ToPackageJsonTestCase {
     input: PathBuf,

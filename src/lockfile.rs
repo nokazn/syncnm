@@ -1,14 +1,16 @@
-use data_encoding::BASE32;
-use sha2::{Digest, Sha256};
 use std::{
   fs, io,
   path::{Path, PathBuf},
 };
+
+use data_encoding::BASE32;
+use sha2::{Digest, Sha256};
 use strum::IntoEnumIterator;
 
 use crate::{
-  core::{PackageManagerKind, Result},
+  core::Result,
   errors::{to_error, Error},
+  package_manager::PackageManagerKind,
   utils::hash::Hash,
 };
 
@@ -51,7 +53,7 @@ impl Lockfile {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::{core::PackageManagerKind, test_each, utils::path::to_absolute_path};
+  use crate::{test_each, utils::path::to_absolute_path};
 
   struct NewTestCase {
     input: &'static str,

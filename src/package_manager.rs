@@ -1,7 +1,10 @@
 use std::{path::Path, process::Command};
 
+use serde::{Deserialize, Serialize};
+use strum_macros::EnumIter;
+
 use crate::{
-  core::{PackageManagerKind, Result},
+  core::Result,
   errors::{to_error, Error},
   utils::path::to_absolute_path,
 };
@@ -47,6 +50,40 @@ impl PackageManager {
       Ok(())
     } else {
       Err(Error::FailedToInstallDependenciesError(self, base_dir))
+    }
+  }
+}
+
+#[derive(EnumIter, Serialize, Deserialize, Hash, Clone, Copy, Debug, PartialEq)]
+pub enum PackageManagerKind {
+  Npm,
+  Yarn,
+  Pnpm,
+  Bun,
+}
+
+impl Default for PackageManagerKind {
+  fn default() -> Self {
+    PackageManagerKind::Npm
+  }
+}
+
+impl PackageManagerKind {
+  pub fn to_lockfile_names(&self) -> Vec<&str> {
+    match self {
+      PackageManagerKind::Npm => vec!["package-lock.json"],
+      PackageManagerKind::Yarn => vec!["yarn.lock"],
+      PackageManagerKind::Pnpm => vec!["pnpm-lock.yaml"],
+      PackageManagerKind::Bun => vec!["bun.lockb"],
+    }
+  }
+
+  pub fn to_corepack_name(&self) -> Option<&'static str> {
+    match self {
+      PackageManagerKind::Npm => Some("npm"),
+      PackageManagerKind::Yarn => Some("yarn"),
+      PackageManagerKind::Pnpm => Some("pnpm"),
+      PackageManagerKind::Bun => None,
     }
   }
 }

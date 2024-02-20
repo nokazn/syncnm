@@ -7,8 +7,9 @@ mod project;
 mod utils;
 mod workspaces;
 
-use crate::{core::run, lockfile::Lockfile, project::ProjectRoot, utils::hash::Hashable};
 use env_logger;
+
+use crate::{core::run, lockfile::Lockfile, project::ProjectRoot, utils::hash::Hashable};
 
 fn main() {
   env_logger::init();

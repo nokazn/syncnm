@@ -6,8 +6,9 @@ use std::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-  core::{PackageManagerKind, Result},
+  core::Result,
   errors::{Error, Paths},
+  package_manager::PackageManagerKind,
   utils,
 };
 
@@ -89,9 +90,8 @@ impl PnpmWorkspace {
 
 #[cfg(test)]
 mod tests {
-  use crate::test_each_serial;
-
   use super::*;
+  use crate::test_each_serial;
 
   struct NewTestCase {
     input: (PathBuf, PackageManagerKind, Option<Vec<String>>),

@@ -1,7 +1,8 @@
+use std::fmt::{Debug, Display};
+
 use data_encoding::BASE32;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::fmt::{Debug, Display};
 
 use crate::{core::Result, errors::to_error};
 

@@ -1,9 +1,10 @@
-use path_clean::PathClean;
 use std::{
   env::{current_dir, set_current_dir},
   io,
   path::{Path, PathBuf},
 };
+
+use path_clean::PathClean;
 
 use crate::{core::Result, errors::Error};
 
