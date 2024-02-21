@@ -1,4 +1,4 @@
-use std::{path::Path, process::Command};
+use std::{path::Path, process::Command, vec};
 
 use serde::{Deserialize, Serialize};
 use strum_macros::EnumIter;
@@ -13,15 +13,23 @@ use crate::{
 pub struct PackageManager {
   pub executable_name: String,
   pub install_sub_command: String,
+  pub lockfile_names: Vec<&'static str>,
+  pub corepack_name: Option<&'static str>,
 }
 
 impl From<PackageManagerKind> for PackageManager {
   fn from(value: PackageManagerKind) -> Self {
     match value {
-      PackageManagerKind::Npm => PackageManager::new("npm", "install").unwrap(),
-      PackageManagerKind::Yarn => PackageManager::new("yarn", "install").unwrap(),
-      PackageManagerKind::Pnpm => PackageManager::new("pnpm", "install").unwrap(),
-      PackageManagerKind::Bun => PackageManager::new("bun", "install").unwrap(),
+      PackageManagerKind::Npm => {
+        PackageManager::new("npm", "install", vec!["package-lock.json"], Some("npm"))
+      }
+      PackageManagerKind::Yarn => {
+        PackageManager::new("yarn", "install", vec!["yarn.lock"], Some("yarn"))
+      }
+      PackageManagerKind::Pnpm => {
+        PackageManager::new("pnpm", "install", vec!["pnpm-lock.yaml"], Some("pnpm"))
+      }
+      PackageManagerKind::Bun => PackageManager::new("bun", "install", vec!["bun.lockb"], None),
     }
   }
 }
@@ -30,16 +38,20 @@ impl PackageManager {
   pub fn new(
     executable_name: impl Into<String>,
     install_sub_command: impl Into<String>,
-  ) -> Result<Self> {
+    lockfile_names: Vec<&'static str>,
+    corepack_name: Option<&'static str>,
+  ) -> Self {
     let executable_name = executable_name.into();
     let install_sub_command = install_sub_command.into();
-    Ok(Self {
+    Self {
       executable_name,
       install_sub_command,
-    })
+      lockfile_names,
+      corepack_name,
+    }
   }
 
-  pub fn install(self, base_dir: impl AsRef<Path>) -> Result<()> {
+  pub fn execute_install(self, base_dir: impl AsRef<Path>) -> Result<()> {
     let base_dir = to_absolute_path(base_dir)?;
     let output = Command::new(&self.executable_name)
       .arg(&self.install_sub_command)
@@ -65,20 +77,12 @@ pub enum PackageManagerKind {
 
 impl PackageManagerKind {
   pub fn to_lockfile_names(self) -> Vec<&'static str> {
-    match self {
-      PackageManagerKind::Npm => vec!["package-lock.json"],
-      PackageManagerKind::Yarn => vec!["yarn.lock"],
-      PackageManagerKind::Pnpm => vec!["pnpm-lock.yaml"],
-      PackageManagerKind::Bun => vec!["bun.lockb"],
-    }
+    let package_manager: PackageManager = self.into();
+    package_manager.lockfile_names
   }
 
   pub fn to_corepack_name(self) -> Option<&'static str> {
-    match self {
-      PackageManagerKind::Npm => Some("npm"),
-      PackageManagerKind::Yarn => Some("yarn"),
-      PackageManagerKind::Pnpm => Some("pnpm"),
-      PackageManagerKind::Bun => None,
-    }
+    let package_manager: PackageManager = self.into();
+    package_manager.corepack_name
   }
 }

@@ -21,19 +21,20 @@ pub struct Lockfile {
 }
 
 impl Lockfile {
-  pub fn new(dir_path: impl AsRef<Path>) -> Result<Self> {
-    match Lockfile::try_to_read_lockfile(&dir_path) {
+  pub fn new(base_dir: impl AsRef<Path>) -> Result<Self> {
+    let base_dir = base_dir.as_ref().to_path_buf();
+    match Lockfile::try_to_read_lockfile(&base_dir) {
       Some((kind, path)) => Ok(Self { kind, path }),
-      None => Err(Error::NoLockfile(dir_path.as_ref().to_path_buf())),
+      None => Err(Error::NoLockfile(base_dir)),
     }
   }
 
-  fn try_to_read_lockfile(dir_path: impl AsRef<Path>) -> Option<(PackageManagerKind, PathBuf)> {
+  fn try_to_read_lockfile(base_dir: impl AsRef<Path>) -> Option<(PackageManagerKind, PathBuf)> {
     for kind in PackageManagerKind::iter() {
       for lockfile in kind.to_lockfile_names() {
-        let file_path = dir_path.as_ref().join(lockfile);
-        if file_path.exists() {
-          return Some((kind, file_path));
+        let path = base_dir.as_ref().join(lockfile);
+        if path.exists() {
+          return Some((kind, path));
         }
       }
     }
