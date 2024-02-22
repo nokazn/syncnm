@@ -58,6 +58,10 @@ impl PackageManager {
       .current_dir(&base_dir)
       .output()
       .map_err(to_error)?;
+
+    let text = String::from_utf8_lossy(&output.stdout);
+    println!("{}", text);
+
     if output.status.success() {
       Ok(())
     } else {
