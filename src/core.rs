@@ -24,12 +24,14 @@ pub fn run(base_dir: impl AsRef<Path>, cache_dir: Option<impl AsRef<Path>>) -> R
   let lockfile = Lockfile::new(&base_dir);
   let lockfile_kind = lockfile.as_ref().map(|l| l.kind).ok();
   let project_root = ProjectRoot::new(&base_dir, lockfile_kind)?;
-  let cache = Cache::new(&base_dir, &node_modules_dir, cache_dir.as_ref());
 
   if let Ok(lockfile) = &lockfile {
-    if both_and_then(cache, generate_cache_key(lockfile, &project_root))
-      .and_then(|(cache, cache_key)| cache.restore(cache_key.to_string()))
-      .is_ok()
+    if both_and_then(
+      Cache::new(&base_dir, &node_modules_dir, cache_dir.as_ref()),
+      generate_cache_key(lockfile, &project_root),
+    )
+    .and_then(|(cache, cache_key)| cache.restore(cache_key.to_string()))
+    .is_ok()
     {
       return Ok(());
     }
@@ -42,7 +44,8 @@ pub fn run(base_dir: impl AsRef<Path>, cache_dir: Option<impl AsRef<Path>>) -> R
   let cache_key = generate_cache_key(&lockfile, &project_root)?;
   // reevaluate the cache because cache directory may change
   let cache = Cache::new(&base_dir, &node_modules_dir, cache_dir.as_ref());
-  cache.and_then(|cache| cache.save(cache_key.to_string()))
+  cache.and_then(|cache| cache.save(cache_key.to_string()))?;
+  Ok(())
 }
 
 fn generate_cache_key(lockfile: &Lockfile, project: &ProjectRoot) -> Result<Hash> {

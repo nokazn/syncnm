@@ -9,13 +9,15 @@ use crate::{
 };
 
 pub fn exists_dir(dir: impl AsRef<Path>) -> Result<PathBuf> {
-  let dir = dir
-    .as_ref()
-    .to_path_buf()
-    .canonicalize()
-    .map_err(|_| Error::NoEntry(Paths::One(dir.as_ref().to_path_buf())))?;
-  if dir.is_dir() {
-    Ok(dir)
+  let dir = dir.as_ref().to_path_buf();
+  if dir.is_symlink() {
+    if dir.read_link().map(|p| p.is_dir()).unwrap_or_default() {
+      Ok(dir)
+    } else {
+      Err(Error::NotDir(dir))
+    }
+  } else if dir.is_dir() {
+    dir.canonicalize().map_err(|_| Error::NotAccessible(dir))
   } else {
     Err(Error::NotDir(dir))
   }
@@ -28,10 +30,11 @@ pub fn make_dir_if_not_exists(dir: impl AsRef<Path>) -> Result<()> {
   Ok(())
 }
 
-pub fn rename_dir(from: impl AsRef<Path>, to: impl AsRef<Path>) -> Result<()> {
+pub fn rename(from: impl AsRef<Path>, to: impl AsRef<Path>) -> Result<()> {
   let to = to.as_ref().to_path_buf();
   let parent = &to.parent().ok_or(Error::NoEntry(Paths::One(to.clone())))?;
   make_dir_if_not_exists(parent)?;
+  fs::remove_dir_all(&to).unwrap_or_default();
   fs::rename(&from, &to).map_err(to_error)
 }
 
@@ -57,4 +60,40 @@ pub fn read_to_string(file_path: impl AsRef<Path>) -> Result<String> {
 
 pub fn write(file_path: impl AsRef<Path>, contents: impl AsRef<[u8]>) -> Result<()> {
   fs::write(&file_path, &contents).map_err(to_error)
+}
+
+#[cfg(test)]
+mod tests {
+  use crate::{test_each_serial, utils::path::to_absolute_path};
+
+  use super::*;
+
+  struct ExistsDirTestCase {
+    dir: &'static str,
+    expected: Result<PathBuf>,
+  }
+
+  test_each_serial!(
+    test_exists_dir,
+    (|case: &ExistsDirTestCase| {
+      let result = exists_dir(case.dir);
+      assert_eq!(result, case.expected);
+    }),
+    "dir" => &ExistsDirTestCase {
+      dir: "tests/fixtures/utils/fs/exists_dir/dir1",
+      expected: to_absolute_path("tests/fixtures/utils/fs/exists_dir/dir1"),
+    },
+    "symlink_dir" => &ExistsDirTestCase {
+      dir: "tests/fixtures/utils/fs/exists_dir/dir2",
+      expected: Ok(PathBuf::from("tests/fixtures/utils/fs/exists_dir/dir2")),
+    },
+    "symlink_file" => &ExistsDirTestCase {
+      dir: "tests/fixtures/utils/fs/exists_dir/file1",
+      expected: Err(Error::NotDir(PathBuf::from("tests/fixtures/utils/fs/exists_dir/file1"))),
+    },
+    "none" => &ExistsDirTestCase {
+      dir: "tests/fixtures/utils/fs/exists_dir/none",
+      expected: Err(Error::NotDir(PathBuf::from("tests/fixtures/utils/fs/exists_dir/none"))),
+    },
+  );
 }

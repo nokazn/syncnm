@@ -75,7 +75,7 @@ impl Metadata {
 ///
 /// -----------------------------------------------------------------------------
 ///
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Cache {
   base_dir: PathBuf,
   target_dir: PathBuf,
@@ -105,30 +105,35 @@ impl Cache {
     })
   }
 
-  pub fn save(&self, key: impl Into<String>) -> Result<()> {
+  pub fn save(&self, key: impl Into<String>) -> Result<Self> {
     let key = key.into();
     let cache = self.cache_dir.join(&key);
     fs::create_symlink_dir(&self.target_dir, cache).or::<Error>(Ok(()))?;
     let metadata = Metadata::new(&self.cache_dir)?;
     // TODO: branch and commit
     metadata.update(Hash(key), "branch".to_string(), "commit".to_string())?;
-    Ok(())
+    Ok(self.clone())
   }
 
-  fn find_current_cache(&self) -> Option<PathBuf> {
+  fn find_current_cache(&self) -> Option<(PathBuf, Hash)> {
     let current_hash = Metadata::new(&self.cache_dir).ok()?.contents.current_hash?;
-    fs::exists_dir(self.cache_dir.join(current_hash.to_string())).ok()
+    let current_path = fs::exists_dir(self.cache_dir.join(&current_hash.to_string())).ok()?;
+    Some((current_path, current_hash))
   }
 
-  pub fn restore(&self, key: impl Into<String>) -> Result<()> {
-    let cache = self.cache_dir.join(key.into());
+  pub fn restore(&self, key: impl Into<String>) -> Result<Self> {
+    let key: String = key.into();
+    let cache = self.cache_dir.join(&key);
     if cache.is_dir() {
-      if let Some(current) = self.find_current_cache() {
-        fs::rename_dir(&self.target_dir, current)
+      if let Some((current_path, current_hash)) = self.find_current_cache() {
+        if current_hash.as_str() == &key {
+          return Ok(self.clone());
+        }
+        fs::rename(&self.target_dir, current_path)
           .map_err(|error| error.log_warn(Some("Failed to save the current cache")))
           .unwrap_or(());
       }
-      fs::rename_dir(cache, &self.target_dir)
+      fs::rename(cache, &self.target_dir).and(Ok(self.clone()))
     } else {
       Err(Error::NotDir(cache))
     }
