@@ -25,11 +25,10 @@ pub fn to_absolute_path(path: impl AsRef<Path>) -> Result<PathBuf> {
 }
 
 /// Run a function `f` in the base directory `base_dir`, and go back to the original cwd.
-pub fn run_in_base_dir<T, U, F>(base_dir: T, f: F, fallback: Option<U>) -> F::Output
+pub fn run_in_base_dir<T, F>(base_dir: impl AsRef<Path>, f: F, fallback: Option<T>) -> F::Output
 where
-  T: AsRef<Path>,
-  F: FnOnce() -> U,
-  U: Default,
+  T: Default,
+  F: FnOnce() -> T,
 {
   let on_io_error = |error: io::Error| {
     Error::NotAccessible(base_dir.as_ref().to_path_buf())
@@ -37,24 +36,47 @@ where
       .log_error(None);
     fallback.unwrap_or_default()
   };
-
   let cwd = match current_dir() {
     Ok(cwd) => cwd,
     Err(error) => {
       return on_io_error(error);
     }
   };
-
   if let Err(error) = set_current_dir(&base_dir) {
     return on_io_error(error);
   };
-
   let result = f();
-
   if let Err(error) = set_current_dir(cwd) {
     on_io_error(error);
   }
+  result
+}
 
+#[cfg(test)]
+pub fn try_to_run_in_base_dir<T, F>(base_dir: impl AsRef<Path>, f: F) -> Result<T>
+where
+  F: FnOnce() -> Result<T>,
+{
+  let on_io_error = |error: io::Error| {
+    Err(
+      Error::NotAccessible(base_dir.as_ref().to_path_buf())
+        .log_debug(&error)
+        .log_error(None),
+    )
+  };
+  let cwd = match current_dir() {
+    Ok(cwd) => cwd,
+    Err(error) => {
+      return on_io_error(error);
+    }
+  };
+  if let Err(error) = set_current_dir(&base_dir) {
+    return on_io_error(error);
+  };
+  let result = f();
+  if let Err(error) = set_current_dir(cwd) {
+    let _no_ret = on_io_error(error);
+  }
   result
 }
 

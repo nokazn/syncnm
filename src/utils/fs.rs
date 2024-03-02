@@ -24,10 +24,7 @@ pub fn exists_dir(dir: impl AsRef<Path>) -> Result<PathBuf> {
 }
 
 pub fn make_dir_if_not_exists(dir: impl AsRef<Path>) -> Result<()> {
-  if !dir.as_ref().exists() {
-    fs::create_dir_all(dir).map_err(to_error)?;
-  }
-  Ok(())
+  fs::create_dir_all(dir).map_err(to_error)
 }
 
 pub fn rename(from: impl AsRef<Path>, to: impl AsRef<Path>) -> Result<()> {
@@ -64,7 +61,11 @@ pub fn write(file_path: impl AsRef<Path>, contents: impl AsRef<[u8]>) -> Result<
 
 #[cfg(test)]
 mod tests {
-  use crate::{test_each_serial, utils::path::to_absolute_path};
+  use std::env::temp_dir;
+
+  use crate::test_each_serial;
+  use crate::utils::path::{to_absolute_path, try_to_run_in_base_dir};
+  use crate::utils::result::convert_panic_to_result;
 
   use super::*;
 
@@ -96,4 +97,31 @@ mod tests {
       expected: Err(Error::NotDir(PathBuf::from("tests/fixtures/utils/fs/exists_dir/none"))),
     },
   );
+
+  #[test]
+  #[serial_test::serial]
+  fn test_rename() {
+    let base_dir = temp_dir().canonicalize().unwrap().join("fs/test_rename");
+    make_dir_if_not_exists(&base_dir).unwrap();
+    let after_all = |_| fs::remove_dir_all(&base_dir).unwrap();
+
+    let result = try_to_run_in_base_dir(&base_dir, || {
+      let base_dir1 = base_dir.join("dir1/dir2");
+      make_dir_if_not_exists(&base_dir1)?;
+      let from = base_dir1.join("file1");
+      fs::File::create(&from).map_err(to_error)?;
+      convert_panic_to_result(|| assert!(from.exists()))?;
+
+      let to = base_dir1.join("file2");
+      rename(&from, &to)?;
+      convert_panic_to_result(|| {
+        assert!(!from.exists());
+        assert!(to.exists());
+      })?;
+
+      Ok(())
+    })
+    .map_err(after_all);
+    assert_eq!(result, Ok(()));
+  }
 }
