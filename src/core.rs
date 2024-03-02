@@ -52,7 +52,12 @@ fn generate_cache_key(lockfile: &Lockfile, project: &ProjectRoot) -> Result<Hash
   let lockfile_hash = lockfile.generate_hash()?;
   let project_hash = project.generate_hash()?;
   Ok(Hash(
-    format!("{}-{}", lockfile_hash, project_hash).to_string(),
+    format!(
+      "{}-{}",
+      &lockfile_hash.to_string()[..16].to_lowercase(),
+      &project_hash.to_string()[..16].to_lowercase()
+    )
+    .to_string(),
   ))
 }
 
