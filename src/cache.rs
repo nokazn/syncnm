@@ -117,7 +117,7 @@ impl Cache {
 
   fn find_current_cache(&self) -> Option<(PathBuf, Hash)> {
     let current_hash = Metadata::new(&self.cache_dir).ok()?.contents.current_hash?;
-    let current_path = fs::exists_dir(self.cache_dir.join(&current_hash.to_string())).ok()?;
+    let current_path = fs::exists_dir(self.cache_dir.join(current_hash.to_string())).ok()?;
     Some((current_path, current_hash))
   }
 
@@ -126,7 +126,7 @@ impl Cache {
     let cache = self.cache_dir.join(&key);
     if cache.is_dir() {
       if let Some((current_path, current_hash)) = self.find_current_cache() {
-        if current_hash.as_str() == &key {
+        if current_hash.as_str() == key {
           return Ok(self.clone());
         }
         fs::rename(&self.target_dir, current_path)
