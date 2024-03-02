@@ -103,25 +103,60 @@ mod tests {
   fn test_rename() {
     let base_dir = temp_dir().canonicalize().unwrap().join("fs/test_rename");
     make_dir_if_not_exists(&base_dir).unwrap();
-    let after_all = |_| fs::remove_dir_all(&base_dir).unwrap();
 
     let result = try_to_run_in_base_dir(&base_dir, || {
-      let base_dir1 = base_dir.join("dir1/dir2");
+      // rename file
+      let base_dir1 = base_dir.join("foo/bar");
       make_dir_if_not_exists(&base_dir1)?;
       let from = base_dir1.join("file1");
       fs::File::create(&from).map_err(to_error)?;
-      convert_panic_to_result(|| assert!(from.exists()))?;
-
       let to = base_dir1.join("file2");
+      convert_panic_to_result(|| {
+        assert!(from.exists());
+        assert!(!to.exists());
+      })?;
       rename(&from, &to)?;
       convert_panic_to_result(|| {
         assert!(!from.exists());
         assert!(to.exists());
       })?;
 
+      // create destination parent directory if not exists
+      let base_dir2 = base_dir.join("baz");
+      let from = to;
+      let to = base_dir2.join("file3");
+      convert_panic_to_result(|| {
+        assert!(!base_dir2.exists());
+        assert!(from.exists());
+        assert!(!to.exists());
+      })?;
+      rename(&from, &to)?;
+      convert_panic_to_result(|| {
+        assert!(base_dir2.exists());
+        assert!(!from.exists());
+        assert!(to.exists());
+      })?;
+
+      // overwrite destination
+      let from = base_dir2.join("file4");
+      fs::File::create(&from).map_err(to_error)?;
+      convert_panic_to_result(|| assert!(from.exists()))?;
+      convert_panic_to_result(|| {
+        assert!(base_dir2.exists());
+        assert!(from.exists());
+        assert!(to.exists());
+      })?;
+      rename(&from, &to)?;
+      convert_panic_to_result(|| {
+        assert!(base_dir2.exists());
+        assert!(!from.exists());
+        assert!(to.exists());
+      })?;
+
       Ok(())
-    })
-    .map_err(after_all);
+    });
+
+    fs::remove_dir_all(&base_dir).unwrap();
     assert_eq!(result, Ok(()));
   }
 }
