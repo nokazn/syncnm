@@ -108,7 +108,7 @@ impl Cache {
   pub fn save(&self, key: impl Into<String>) -> Result<Self> {
     let key = key.into();
     let cache = self.cache_dir.join(&key);
-    fs::create_symlink_dir(&self.target_dir, cache).or::<Error>(Ok(()))?;
+    fs::create_symlink(&self.target_dir, cache).or::<Error>(Ok(()))?;
     let metadata = Metadata::new(&self.cache_dir)?;
     // TODO: branch and commit
     metadata.update(Hash(key), "branch".to_string(), "commit".to_string())?;

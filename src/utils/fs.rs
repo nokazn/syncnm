@@ -36,15 +36,16 @@ pub fn rename(from: impl AsRef<Path>, to: impl AsRef<Path>) -> Result<()> {
 }
 
 #[cfg(unix)]
-pub fn create_symlink_dir(from: impl AsRef<Path>, to: impl AsRef<Path>) -> Result<()> {
+pub fn create_symlink(from: impl AsRef<Path>, to: impl AsRef<Path>) -> Result<()> {
   let to = to.as_ref().to_path_buf();
   let parent = &to.parent().ok_or(Error::NoEntry(Paths::One(to.clone())))?;
   make_dir_if_not_exists(parent)?;
+  fs::remove_dir_all(&to).unwrap_or_default();
   std::os::unix::fs::symlink(&from, &to).map_err(to_error)
 }
 
 #[cfg(windows)]
-pub fn create_symlink_dir(from: impl AsRef<Path>, to: impl AsRef<Path>) -> Result<()> {
+pub fn create_symlink(from: impl AsRef<Path>, to: impl AsRef<Path>) -> Result<()> {
   let to = to.as_ref().to_path_buf();
   let parent = &to.parent().ok_or(Error::NoEntry(Paths::One(to.clone())))?;
   make_dir_if_not_exists(parent)?;
@@ -132,7 +133,7 @@ mod tests {
       })?;
       rename(&from, &to)?;
       convert_panic_to_result(|| {
-        assert!(base_dir2.exists());
+        assert!(base_dir2.is_dir());
         assert!(!from.exists());
         assert!(to.exists());
       })?;
@@ -140,19 +141,78 @@ mod tests {
       // overwrite destination
       let from = base_dir2.join("file4");
       fs::File::create(&from).map_err(to_error)?;
-      convert_panic_to_result(|| assert!(from.exists()))?;
       convert_panic_to_result(|| {
-        assert!(base_dir2.exists());
         assert!(from.exists());
         assert!(to.exists());
       })?;
       rename(&from, &to)?;
       convert_panic_to_result(|| {
-        assert!(base_dir2.exists());
         assert!(!from.exists());
         assert!(to.exists());
       })?;
 
+      Ok(())
+    });
+
+    fs::remove_dir_all(&base_dir).unwrap();
+    assert_eq!(result, Ok(()));
+  }
+
+  #[test]
+  #[serial_test::serial]
+
+  fn test_create_symlink() {
+    let base_dir = temp_dir()
+      .canonicalize()
+      .unwrap()
+      .join("fs/test_create_symlink");
+    make_dir_if_not_exists(&base_dir).unwrap();
+
+    let result = try_to_run_in_base_dir(&base_dir, || {
+      let base_dir1 = base_dir.join("foo/bar");
+      make_dir_if_not_exists(&base_dir1)?;
+      let from = base_dir1.join("file1");
+      fs::File::create(&from).map_err(to_error)?;
+      let to = base_dir1.join("file2");
+      convert_panic_to_result(|| {
+        assert!(from.is_file());
+        assert!(!to.exists());
+      })?;
+      create_symlink(&from, &to)?;
+      convert_panic_to_result(|| {
+        assert!(from.is_file());
+        assert!(to.is_symlink());
+      })?;
+
+      // create destination parent directory if not exists
+      let base_dir2 = base_dir.join("baz");
+      let to = base_dir2.join("file3");
+      convert_panic_to_result(|| {
+        assert!(!base_dir2.exists());
+        assert!(from.is_file());
+        assert!(!to.exists());
+      })?;
+      create_symlink(&from, &to)?;
+      convert_panic_to_result(|| {
+        assert!(base_dir2.is_dir());
+        assert!(from.is_file());
+        assert!(to.is_symlink());
+      })?;
+
+      // overwrite destination
+      let from = base_dir2.join("file4");
+      fs::File::create(&from).map_err(to_error)?;
+      convert_panic_to_result(|| {
+        assert!(from.is_file());
+        assert!(to.is_symlink());
+        assert_ne!(from.canonicalize().unwrap(), to.canonicalize().unwrap());
+      })?;
+      create_symlink(&from, &to)?;
+      convert_panic_to_result(|| {
+        assert!(from.exists());
+        assert!(to.is_symlink());
+        assert_eq!(from.canonicalize().unwrap(), to.canonicalize().unwrap());
+      })?;
       Ok(())
     });
 
