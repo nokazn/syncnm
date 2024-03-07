@@ -7,6 +7,8 @@ use crate::core::Result;
 use crate::errors::{to_error, Error, Paths};
 use crate::utils::{fs, hash::Hash};
 
+pub const DEFAULT_CACHE_DIR: &str = ".cache/syncnm";
+
 #[derive(Deserialize, Serialize, Clone, PartialEq, Debug, Default)]
 struct CacheMeta {
   branch: String,
@@ -88,8 +90,6 @@ impl Cache {
     target_dir: impl AsRef<Path>,
     cache_dir: Option<impl AsRef<Path>>,
   ) -> Result<Self> {
-    const DEFAULT_CACHE_DIR: &str = ".cache/syncnm";
-
     let base_dir = fs::exists_dir(base_dir)?;
     let target_dir = fs::exists_dir(target_dir)?;
     let cache_dir = cache_dir

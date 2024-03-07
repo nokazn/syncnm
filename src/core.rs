@@ -17,6 +17,8 @@ use crate::{
 
 pub type Result<T> = result::Result<T, Error>;
 
+pub const APP_NAME: &str = "syncnm";
+
 pub fn run(base_dir: impl AsRef<Path>, cache_dir: Option<impl AsRef<Path>>) -> Result<()> {
   let base_dir = base_dir.as_ref().to_path_buf();
   let node_modules_dir = to_node_modules_dir(&base_dir);
