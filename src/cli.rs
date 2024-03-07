@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use clap::{Arg, Command};
+use clap::{value_parser, Arg, Command};
 
 use crate::{
   cache::DEFAULT_CACHE_DIR,
@@ -9,39 +9,47 @@ use crate::{
 
 const INSTALL_CMD: &str = "install";
 const RUN_CMD: &str = "run";
+const UNINSTALL_CMD: &str = "uninstall";
 
 const BASE_DIR_ARG: &str = "base_dir";
 const CACHE_DIR_ARG: &str = "cache_dir";
 
+fn path_buf_arg(id: &'static str) -> Arg {
+  Arg::new(id).value_parser(value_parser!(PathBuf))
+}
+
 pub fn run() {
+  let base_dir_arg = path_buf_arg(BASE_DIR_ARG).help(format!(
+    "A path to a local project to install {APP_NAME} (current directory by default)"
+  ));
+  let cache_dir_arg = path_buf_arg(CACHE_DIR_ARG)
+    .long("cache-dir")
+    .short('c')
+    .help(format!(
+      "A path to a local project to install ({DEFAULT_CACHE_DIR} by default) ",
+    ));
+
   let cli = Command::new(APP_NAME)
     .about("Sync node_modules when your local dependency graph changes")
     .subcommand_required(true)
     .arg_required_else_help(true)
     .subcommand(
       Command::new(INSTALL_CMD)
-        .about("Install syncnm at your local project")
-        .args(&[
-          Arg::new(BASE_DIR_ARG).help("A path to a local project to install"),
-          Arg::new(CACHE_DIR_ARG)
-            .long("cache-dir")
-            .short('c')
-            .help("A path to a local project to install"),
-        ]),
+        .about(format!("Install {APP_NAME} at your local project"))
+        .arg(base_dir_arg.clone())
+        .arg(cache_dir_arg.clone()),
     )
     .subcommand(
-      Command::new(RUN_CMD).about("run syncnm").args(&[
-        Arg::new(BASE_DIR_ARG).help("A path to a local project to install"),
-        Arg::new(CACHE_DIR_ARG)
-          .long("cache-dir")
-          .short('c')
-          .help(format!(
-            "A path to a local project to install (./{} by default) ",
-            DEFAULT_CACHE_DIR
-          )),
-      ]),
+      Command::new(RUN_CMD)
+        .about(format!("run {APP_NAME}"))
+        .arg(base_dir_arg.clone())
+        .arg(cache_dir_arg.clone()),
     )
-    .subcommand(Command::new("uninstall"));
+    .subcommand(
+      Command::new(UNINSTALL_CMD)
+        .about(format!("Uninstall {APP_NAME} from your local project"))
+        .arg(base_dir_arg.clone()),
+    );
 
   let matches = cli.get_matches();
   match matches.subcommand() {
@@ -51,7 +59,7 @@ pub fn run() {
     }
     Some((RUN_CMD, args)) => {
       let base_dir = args
-        .get_one::<String>(BASE_DIR_ARG)
+        .get_one::<PathBuf>(BASE_DIR_ARG)
         .map(PathBuf::from)
         .unwrap_or_default();
       let cache_dir = args.get_one::<String>(CACHE_DIR_ARG).map(PathBuf::from);
