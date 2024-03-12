@@ -10,5 +10,6 @@
   "[json][jsonc][toml][markdown]": {
     "editor.defaultFormatter": "dprint.dprint",
     "editor.formatOnSave": true
-  }
+  },
+  "nixEnvSelector.nixFile": "${workspaceRoot}/shell.nix"
 }

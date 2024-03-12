@@ -1,0 +1,9 @@
+{
+  "recommendations": [
+    "arrterian.nix-env-selector",
+    "rust-lang.rust-analyzer",
+    "b4dm4n.nixpkgs-fmt",
+    "dprint.dprint",
+    "jnoortheen.nix-ide"
+  ]
+}
