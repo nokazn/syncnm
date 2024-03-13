@@ -30,7 +30,7 @@ pub fn run() {
     ));
 
   let cli = Command::new(APP_NAME)
-    .about("Sync node_modules when your local dependency graph changes")
+    .about("Sync node_modules when your local dependency list changes")
     .subcommand_required(true)
     .arg_required_else_help(true)
     .subcommand(
@@ -41,7 +41,7 @@ pub fn run() {
     )
     .subcommand(
       Command::new(RUN_CMD)
-        .about(format!("run {APP_NAME}"))
+        .about(format!("Run {APP_NAME}"))
         .arg(base_dir_arg.clone())
         .arg(cache_dir_arg.clone()),
     )
