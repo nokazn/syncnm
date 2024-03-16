@@ -63,7 +63,7 @@ pub fn run() {
         .map(PathBuf::from)
         .unwrap_or_default();
       let cache_dir = args.get_one::<String>(CACHE_DIR_ARG).map(PathBuf::from);
-      let result = core::run(&base_dir, cache_dir);
+      let result = core::run(base_dir, cache_dir);
       dbg!(&result);
     }
     _ => {
