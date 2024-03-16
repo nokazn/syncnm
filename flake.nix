@@ -2,18 +2,30 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
     naersk.url = "github:nix-community/naersk/master";
-    utils.url = "github:numtide/flake-utils";
+    flake-utils.url = "github:numtide/flake-utils";
+    flake-compat.url = "github:edolstra/flake-compat";
   };
 
-  outputs = { self, nixpkgs, utils, naersk }:
-    utils.lib.eachDefaultSystem (system:
-      let
-        pkgs = import nixpkgs { inherit system; };
-        naersk-lib = pkgs.callPackage naersk { };
-      in
-      {
-        defaultPackage = naersk-lib.buildPackage ./.;
-        devShell = with pkgs; mkShell {
+  outputs =
+    { nixpkgs
+    , flake-utils
+    , naersk
+    , ...
+    }:
+    flake-utils.lib.eachDefaultSystem (system:
+    let
+      pkgs = import nixpkgs {
+        inherit system;
+      };
+      naersk-lib = pkgs.callPackage naersk { };
+    in
+    {
+      packages = {
+        default = naersk-lib.buildPackage ./.;
+      };
+
+      devShells = with pkgs; {
+        default = mkShell {
           nativeBuildInputs = [
             pkg-config
           ];
@@ -37,5 +49,6 @@
           ) + "/openssl";
           OPENSSL_STATIC = "0";
         };
-      });
+      };
+    });
 }
