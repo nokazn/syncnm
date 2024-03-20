@@ -5,6 +5,8 @@ use std::{
 };
 
 use path_clean::PathClean;
+
+#[cfg(test)]
 use regex::Regex;
 
 use crate::{core::Result, errors::Error};
@@ -44,6 +46,7 @@ pub fn clean_path_separator(path: impl AsRef<Path>) -> PathBuf {
 }
 
 #[cfg(test)]
+#[cfg(windows)]
 pub fn remove_windows_path_prefix(path: impl AsRef<Path>) -> PathBuf {
   #[cfg(windows)]
   {
@@ -136,7 +139,6 @@ mod tests {
         base_dir,
         || {
           let result = to_absolute_path(&case.input).unwrap();
-          dbg!(&result, &base_dir);
           assert!(result.starts_with(&base_dir));
           assert!(result.ends_with(&case.expected));
         },
