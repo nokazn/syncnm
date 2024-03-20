@@ -5,6 +5,7 @@ use std::{
 };
 
 use path_clean::PathClean;
+use regex::Regex;
 
 use crate::{core::Result, errors::Error};
 
@@ -22,6 +23,39 @@ pub fn to_absolute_path(path: impl AsRef<Path>) -> Result<PathBuf> {
       .join(path)
   };
   Ok(PathClean::clean(&absolute_path))
+}
+
+#[cfg(test)]
+pub fn clean_path_separator(path: impl AsRef<Path>) -> PathBuf {
+  let path = path.as_ref().to_string_lossy().to_string();
+  #[cfg(unix)]
+  {
+    // if this passes tests, this unwrap never fails
+    let r = Regex::new(r"(?:\\)+").unwrap();
+    PathBuf::from(r.replace_all(&path, "/").to_string())
+  }
+
+  #[cfg(windows)]
+  {
+    // if this passes tests, this unwrap never fails
+    let r = Regex::new(r"(^|[^\\])/+").unwrap();
+    PathBuf::from(r.replace_all(&path, "${1}\\").to_string())
+  }
+}
+
+#[cfg(test)]
+pub fn remove_windows_path_prefix(path: impl AsRef<Path>) -> PathBuf {
+  #[cfg(windows)]
+  {
+    let path = path.as_ref().to_string_lossy().to_string();
+    // if this passes tests, this unwrap never fails
+    let r = Regex::new(r"^[a-zA-Z]:").unwrap();
+    PathBuf::from(r.replace(&path, "").to_string())
+  }
+  #[cfg(unix)]
+  {
+    path.as_ref().to_path_buf()
+  }
 }
 
 /// Run a function `f` in the base directory `base_dir`, and go back to the original cwd.
@@ -87,7 +121,7 @@ mod tests {
   use std::env::temp_dir;
   use std::path::PathBuf;
 
-  use crate::{test_each_serial, utils::path::to_absolute_path};
+  use crate::{test_each, test_each_serial, utils::path::to_absolute_path};
 
   struct ToAbsolutePathTestCase {
     input: &'static str,
@@ -95,14 +129,54 @@ mod tests {
     expected: PathBuf,
   }
 
+  #[cfg(windows)]
   fn test_to_absolute_path_each(case: &ToAbsolutePathTestCase) {
     if let Some(base_dir) = &case.base_dir {
       run_in_base_dir(
         base_dir,
         || {
           let result = to_absolute_path(&case.input).unwrap();
-          assert_eq!(result.starts_with(&base_dir.canonicalize().unwrap()), true);
-          assert_eq!(result.ends_with(&case.expected), true);
+          dbg!(&result, &base_dir);
+          assert!(result.starts_with(&base_dir));
+          assert!(result.ends_with(&case.expected));
+        },
+        None,
+      )
+    } else {
+      assert_eq!(
+        remove_windows_path_prefix(to_absolute_path(&case.input).unwrap()),
+        case.expected
+      );
+    }
+  }
+
+  #[cfg(windows)]
+  test_each_serial!(
+    test_to_absolute_path,
+    test_to_absolute_path_each,
+    "1" => &ToAbsolutePathTestCase {
+      input: "\\Users\\user-a\\app\\1",
+      base_dir: None,
+      expected: PathBuf::from("\\Users\\user-a\\app\\1"),
+    },
+    "2" => {
+      let tmp_dir = temp_dir();
+      &ToAbsolutePathTestCase {
+        input: ".\\foo",
+        base_dir: Some(tmp_dir.clone()),
+        expected: tmp_dir.join("foo"),
+      }
+    },
+  );
+  #[cfg(not(windows))]
+  fn test_to_absolute_path_each(case: &ToAbsolutePathTestCase) {
+    if let Some(base_dir) = &case.base_dir {
+      run_in_base_dir(
+        base_dir,
+        || {
+          let result = to_absolute_path(&case.input).unwrap();
+          assert!(result.starts_with(&base_dir.canonicalize().unwrap()));
+          assert!(result.ends_with(&case.expected));
         },
         None,
       )
@@ -111,6 +185,7 @@ mod tests {
     }
   }
 
+  #[cfg(not(windows))]
   test_each_serial!(
     test_to_absolute_path,
     test_to_absolute_path_each,
@@ -126,6 +201,65 @@ mod tests {
         base_dir: Some(tmp_dir.clone()),
         expected: tmp_dir.canonicalize().unwrap().join("foo"),
       }
+    },
+  );
+
+  struct CleanPathSeparatorTestCase {
+    input: &'static str,
+    expected: &'static str,
+  }
+
+  #[cfg(windows)]
+  test_each!(
+    test_clean_path_separator,
+    |case: &CleanPathSeparatorTestCase| {
+      assert_eq!(
+        clean_path_separator(case.input).to_string_lossy(),
+        case.expected.to_string()
+      );
+    },
+    "1" => &CleanPathSeparatorTestCase {
+      input: "/Users/user-a/app/1",
+      expected: "\\Users\\user-a\\app\\1",
+    },
+    "2" => &CleanPathSeparatorTestCase {
+      input: "/Users/user-a////app/1",
+      expected: "\\Users\\user-a\\app\\1",
+    },
+    "3" => &CleanPathSeparatorTestCase {
+      input: "./////app/1//////////////",
+      expected: ".\\app\\1\\",
+    },
+    "4" => &CleanPathSeparatorTestCase{
+      input: "./////app/1//.////////////",
+      expected: ".\\app\\1\\.\\",
+    },
+  );
+
+  #[cfg(not(windows))]
+  test_each!(
+    test_clean_path_separator,
+    |case: &CleanPathSeparatorTestCase| {
+      assert_eq!(
+        clean_path_separator(case.input).to_string_lossy(),
+        case.expected.to_string()
+      );
+    },
+    "1" => &CleanPathSeparatorTestCase {
+      input: "\\Users\\user-a\\app\\1",
+      expected: "/Users/user-a/app/1",
+    },
+    "2" => &CleanPathSeparatorTestCase {
+      input: "\\Users\\user-a\\\\app\\1",
+      expected: "/Users/user-a/app/1",
+    },
+    "3" => &CleanPathSeparatorTestCase {
+      input: ".\\\\\\\\\\\\app\\\\\\1\\",
+      expected: "./app/1/",
+    },
+    "4" => &CleanPathSeparatorTestCase{
+      input: ".\\app\\1\\.\\",
+      expected: "./app/1/./",
     },
   );
 
