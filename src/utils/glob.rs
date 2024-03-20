@@ -115,7 +115,10 @@ mod tests {
             .collect::<Vec<_>>()
         ),
         case.input.1
-      ),
+      )
+      .iter()
+      .map(|p| p.canonicalize().unwrap())
+      .collect::<Vec<_>>(),
       case
         .expected
         .iter()

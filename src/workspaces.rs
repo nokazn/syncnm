@@ -91,7 +91,7 @@ impl PnpmWorkspace {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::test_each_serial;
+  use crate::{test_each_serial, utils::path::clean_path_separator};
 
   struct NewTestCase {
     input: (PathBuf, PackageManagerKind, Option<Vec<String>>),
@@ -99,15 +99,27 @@ mod tests {
   }
 
   fn test_new_each(case: NewTestCase) {
-    let base_dir = case.input.0;
-    let workspaces = Workspaces::new(base_dir.clone(), case.input.1, case.input.2);
+    let base_dir = clean_path_separator(case.input.0);
+    let patterns = case.input.2.map(|p| {
+      p.iter()
+        .map(|p| clean_path_separator(p).to_string_lossy().to_string())
+        .collect::<Vec<_>>()
+    });
+    let workspaces = Workspaces::new(base_dir.clone(), case.input.1, patterns);
     assert_eq!(
-      workspaces.packages,
+      workspaces
+        .packages
+        .iter()
+        .map(|p| p.canonicalize().unwrap())
+        .collect::<Vec<_>>(),
       case
         .expected
         .packages
         .iter()
-        .map(|path| base_dir.join(path).canonicalize().unwrap())
+        .map(|path| base_dir
+          .join(clean_path_separator(path))
+          .canonicalize()
+          .unwrap())
         .collect::<Vec<_>>()
     );
   }
