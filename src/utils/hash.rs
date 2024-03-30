@@ -1,6 +1,6 @@
 use std::fmt::{Debug, Display};
 
-use data_encoding::BASE32;
+use data_encoding::BASE32_NOPAD;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
@@ -31,7 +31,7 @@ pub trait Hashable {
         let mut generator = Sha256::new();
         generator.update(bytes);
         let raw_hash = generator.finalize();
-        let hash = BASE32.encode(&raw_hash);
+        let hash = BASE32_NOPAD.encode(&raw_hash[..20]).to_lowercase();
         Ok(Hash(hash))
       }
       Err(error) => Err(to_error(error)),

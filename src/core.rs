@@ -56,8 +56,8 @@ fn generate_cache_key(lockfile: &Lockfile, project: &ProjectRoot) -> Result<Hash
   Ok(Hash(
     format!(
       "{}-{}",
-      &lockfile_hash.to_string()[..16].to_lowercase(),
-      &project_hash.to_string()[..16].to_lowercase()
+      &lockfile_hash.to_string(),
+      &project_hash.to_string()
     )
     .to_string(),
   ))

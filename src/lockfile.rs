@@ -128,19 +128,19 @@ mod tests {
     test_generate_hash_each,
     "npm" => GenerateHashTestCase {
       input: "./tests/fixtures/lockfile/npm",
-      expected: "XDFOLU2UD2LVKFHRTUP3P33GLGTXQG4IGRLDYMT3P6QFI2F3CTJQ====",
+      expected: "xdfolu2ud2lvkfhrtup3p33glgtxqg4i",
     },
     "yarn" => GenerateHashTestCase {
       input: "./tests/fixtures/lockfile/yarn",
-      expected: "OZWLYHFK4D5ZS2ZPB4VJ2JVHBM3LHG7OOOBRAOUVV5M5WOD3DCOQ====",
+      expected: "ozwlyhfk4d5zs2zpb4vj2jvhbm3lhg7o",
     },
     "pnpm" => GenerateHashTestCase {
       input: "./tests/fixtures/lockfile/pnpm",
-      expected: "4YOMPZFFG476HX3S6EYC2V3ZTCBGWFEJ3DSSPRYIE6UDYKZJVFFQ====",
+      expected: "4yompzffg476hx3s6eyc2v3ztcbgwfej",
     },
     "bun" => GenerateHashTestCase {
       input: "./tests/fixtures/lockfile/bun",
-      expected: "QUBT74WRMOCA7VURUV3XNFAACLZVMVWMVC5VDKNLFBEMOB6KREYA====",
+      expected: "qubt74wrmoca7vuruv3xnfaaclzvmvwm",
     },
   );
 }
