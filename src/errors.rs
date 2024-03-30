@@ -36,8 +36,8 @@ pub enum Error {
   #[error("Invalid glob pattern: {:?}", .0)]
   InvalidGlobPattern(&'static str),
 
-  #[error("Failed to install dependencies by `{}` at: `{:?}`", stringify_install_command(.0), .1)]
-  FailedToInstallDependencies(PackageManager, PathBuf),
+  #[error("Failed to install dependencies by `{}` at `{:?}`: {}", stringify_install_command(.0), .1, .2)]
+  FailedToInstallDependencies(PackageManager, PathBuf, String),
 
   #[error("Error: {:?}", .0)]
   Any(String),

@@ -3,13 +3,9 @@ use std::{path::Path, process::Command, vec};
 use serde::{Deserialize, Serialize};
 use strum_macros::EnumIter;
 
-use crate::{
-  core::Result,
-  errors::{to_error, Error},
-  utils::path::to_absolute_path,
-};
+use crate::{core::Result, errors::Error};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct PackageManager {
   pub executable_name: String,
   pub install_sub_command: String,
@@ -52,20 +48,25 @@ impl PackageManager {
   }
 
   pub fn execute_install(self, base_dir: impl AsRef<Path>) -> Result<()> {
-    let base_dir = to_absolute_path(base_dir)?;
+    let base_dir = base_dir.as_ref().to_path_buf();
+    let to_error =
+      |message: String| Error::FailedToInstallDependencies(self.clone(), base_dir.clone(), message);
     let output = Command::new(&self.executable_name)
       .arg(&self.install_sub_command)
       .current_dir(&base_dir)
       .output()
-      .map_err(to_error)?;
+      .map_err(|error| to_error(error.to_string()))?;
 
+    // TODO: stream
     let text = String::from_utf8_lossy(&output.stdout);
     println!("{}", text);
 
     if output.status.success() {
       Ok(())
     } else {
-      Err(Error::FailedToInstallDependencies(self, base_dir))
+      Err(to_error(
+        String::from_utf8_lossy(&output.stderr).to_string(),
+      ))
     }
   }
 }
