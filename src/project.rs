@@ -11,7 +11,7 @@ use strum::IntoEnumIterator;
 
 use crate::{
   core::Result,
-  errors::{Error, Paths},
+  errors::{to_error, Error, Paths},
   package_manager::PackageManagerKind,
   utils::hash::Hashable,
   workspaces::Workspaces,
@@ -163,7 +163,7 @@ struct ProjectDependencies {
 }
 
 impl Hashable for ProjectRoot {
-  fn to_bytes(&self) -> serde_json::Result<Vec<u8>> {
+  fn to_hash_target(&self) -> Result<impl AsRef<[u8]>> {
     let base = &ProjectDependencies {
       root: self.root.clone(),
       workspaces: self
@@ -181,7 +181,7 @@ impl Hashable for ProjectRoot {
         })
         .collect::<BTreeMap<_, _>>(),
     };
-    serde_json::to_string(base).map(|json| json.into_bytes())
+    serde_json::to_string(base).map_err(to_error)
   }
 }
 

@@ -22,19 +22,10 @@ impl Hash {
 }
 
 pub trait Hashable {
-  fn to_bytes(&self) -> serde_json::Result<Vec<u8>>
-  where
-    Self: serde::Serialize,
-  {
-    let json = serde_json::to_string(self)?;
-    Ok(json.into_bytes())
-  }
+  fn to_hash_target(&self) -> Result<impl AsRef<[u8]>>;
 
-  fn generate_hash(&self) -> Result<Hash>
-  where
-    Self: serde::Serialize + Debug,
-  {
-    let bytes = self.to_bytes();
+  fn generate_hash(&self) -> Result<Hash> {
+    let bytes = self.to_hash_target();
     match bytes {
       Ok(bytes) => {
         let mut generator = Sha256::new();

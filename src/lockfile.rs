@@ -1,23 +1,27 @@
 use std::{
-  fs, io,
+  fs,
   path::{Path, PathBuf},
 };
 
-use data_encoding::BASE32;
-use sha2::{Digest, Sha256};
 use strum::IntoEnumIterator;
 
 use crate::{
   core::Result,
   errors::{to_error, Error},
   package_manager::PackageManagerKind,
-  utils::hash::Hash,
+  utils::hash::Hashable,
 };
 
 #[derive(Debug, PartialEq)]
 pub struct Lockfile {
   pub kind: PackageManagerKind,
   path: PathBuf,
+}
+
+impl Hashable for Lockfile {
+  fn to_hash_target(&self) -> Result<Vec<u8>> {
+    fs::read(&self.path).map_err(to_error)
+  }
 }
 
 impl Lockfile {
@@ -40,21 +44,15 @@ impl Lockfile {
     }
     None
   }
-
-  pub fn generate_hash(&self) -> Result<Hash> {
-    let mut file = fs::File::open(&self.path).map_err(to_error)?;
-    let mut hasher = Sha256::new();
-    io::copy(&mut file, &mut hasher).map_err(to_error)?;
-    let raw_hash = hasher.finalize();
-    let hash = BASE32.encode(&raw_hash);
-    Ok(Hash(hash))
-  }
 }
 
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::{test_each, utils::path::to_absolute_path};
+  use crate::{
+    test_each,
+    utils::{hash::Hash, path::to_absolute_path},
+  };
 
   struct NewTestCase {
     input: &'static str,
