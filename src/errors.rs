@@ -1,18 +1,27 @@
 use std::{fmt::Debug, path::PathBuf};
 
+use itertools::Itertools;
 use thiserror::Error;
 
 use crate::{package_manager::PackageManager, utils::path::to_absolute_path};
 
 #[derive(Debug, Error, PartialEq)]
 pub enum Error {
-  #[error("Cannot access to a file or a directory: `{}`", stringify_path(&Paths::One(.0.to_path_buf())))]
+  #[error(
+    "Cannot access to a file or a directory: {}",
+    stringify_path(&Paths::One(.0.to_path_buf()))
+  )]
   NotAccessible(PathBuf),
 
-  #[error("No such a file or a directory: `{}`", stringify_path(.0))]
+  #[error(
+    "No such a file or a directory: {}",
+    stringify_path(.0)
+  )]
   NoEntry(Paths),
 
-  #[error("Not a directory: `{}`", stringify_path(&Paths::One(.0.to_path_buf())))]
+  #[error(
+    "Not a directory: {}",
+    stringify_path(&Paths::One(.0.to_path_buf())))]
   NotDir(PathBuf),
 
   #[error(
@@ -28,28 +37,55 @@ pub enum Error {
   )]
   MultipleLockfiles(PathBuf, Vec<PathBuf>),
 
-  #[error("Invalid workspace: `{}`", stringify_path(&Paths::One(.0.to_path_buf())))]
+  #[error(
+    "Invalid workspace: {}",
+    stringify_path(&Paths::One(.0.to_path_buf()))
+  )]
   InvalidWorkspace(PathBuf),
 
-  #[error("\"name\" or \"version\" are missing in: `{}`", stringify_path(&Paths::One(.0.to_path_buf())))]
+  #[error(
+    "\"name\" or \"version\" are missing in {}",
+    stringify_path(&Paths::One(.0.to_path_buf()))
+  )]
   InvalidPackageJsonFieldsForYarn(PathBuf),
 
-  #[error("\"private\" should be set to `true`: `{}`", stringify_path(&Paths::One(.0.to_path_buf())))]
+  #[error(
+    "\"private\" should be set to `true` in {}",
+    stringify_path(&Paths::One(.0.to_path_buf()))
+  )]
   InvalidPackageJsonPrivateForYarn(PathBuf),
 
-  #[error("\"name\" is missing in: `{}`", stringify_path(&Paths::One(.0.to_path_buf())))]
+  #[error(
+    "\"name\" is missing in {}",
+    stringify_path(&Paths::One(.0.to_path_buf()))
+  )]
   InvalidPackageJsonFieldsForBun(PathBuf),
 
-  #[error("Failed to parse: `{}`", stringify_path(.0))]
-  Parse(Paths),
+  #[error(
+    "Failed to parse {}: {}",
+    stringify_path(.0),
+    .1
+  )]
+  Parse(Paths, String),
 
-  #[error("Invalid glob pattern: {:?}", .0)]
+  #[error(
+    "Invalid glob pattern: {:?}",
+    .0
+  )]
   InvalidGlobPattern(&'static str),
 
-  #[error("Failed to install dependencies by `{}` at `{:?}`: {}", stringify_install_command(.0), .1, .2)]
+  #[error(
+    "Failed to install dependencies by `{}` at `{:?}`: {}",
+    stringify_install_command(.0),
+    .1,
+    .2
+  )]
   FailedToInstallDependencies(PackageManager, PathBuf, String),
 
-  #[error("Error: {:?}", .0)]
+  #[error(
+    "Error: {:?}",
+    .0
+  )]
   Any(String),
 }
 
@@ -100,7 +136,7 @@ fn stringify_path(paths: &Paths) -> String {
           .to_string_lossy()
           .to_string()
       })
-      .collect::<Vec<_>>()
+      .collect_vec()
       .join(", "),
   }
 }

@@ -58,9 +58,8 @@ impl PackageJson {
     let file_path = to_package_json_path(base_dir);
     let contents = fs::read_to_string(&file_path);
     match contents {
-      Ok(contents) => {
-        serde_json::from_str::<Self>(&contents).map_err(|_| Error::Parse(Paths::One(file_path)))
-      }
+      Ok(contents) => serde_json::from_str::<Self>(&contents)
+        .map_err(|error| Error::Parse(Paths::One(file_path), error.to_string())),
       Err(_) => Err(Error::NoEntry(Paths::One(file_path))),
     }
   }

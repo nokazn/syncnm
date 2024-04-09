@@ -38,7 +38,7 @@ impl Metadata {
           contents,
           file_path: file_path.clone(),
         })
-        .map_err(|_| Error::Parse(Paths::One(file_path))),
+        .map_err(|error| Error::Parse(Paths::One(file_path), error.to_string())),
       Err(_) => {
         let v = Self {
           file_path: file_path.clone(),
@@ -65,7 +65,7 @@ impl Metadata {
       },
     };
     let json = serde_json::to_string(&contents)
-      .map_err(|_| Error::Parse(Paths::One(self.file_path.clone())))?;
+      .map_err(|error| Error::Parse(Paths::One(self.file_path.clone()), error.to_string()))?;
     fs::write(&self.file_path, json)?;
     Ok(Self {
       contents,
