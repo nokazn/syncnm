@@ -26,8 +26,12 @@ fmt-nix *flags:
 fmt-dprint *flags:
   dprint fmt {{flags}}
 
-lint:
-  cargo clippy
+lint watch="":
+  if [[ "{{watch}}" == "--watch" ]]; then \
+    cargo watch -x clippy; \
+  else \
+    cargo clippy; \
+  fi
 
 test watch="":
   if [[ "{{watch}}" == "--watch" ]]; then \
