@@ -15,8 +15,18 @@ pub enum Error {
   #[error("Not a directory: `{}`", stringify_path(&Paths::One(.0.to_path_buf())))]
   NotDir(PathBuf),
 
-  #[error("No lockfile at: `{}`", stringify_path(&Paths::One(.0.to_path_buf())))]
+  #[error(
+    "No lockfile at {}",
+    stringify_path(&Paths::One(.0.to_path_buf()))
+  )]
   NoLockfile(PathBuf),
+
+  #[error(
+    "Multiple lockfiles at {}: {}",
+    stringify_path(&Paths::One(.0.to_path_buf())),
+    stringify_path(&Paths::Multiple(.1.to_vec()))
+  )]
+  MultipleLockfiles(PathBuf, Vec<PathBuf>),
 
   #[error("Invalid workspace: `{}`", stringify_path(&Paths::One(.0.to_path_buf())))]
   InvalidWorkspace(PathBuf),

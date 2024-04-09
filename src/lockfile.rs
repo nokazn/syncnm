@@ -1,15 +1,17 @@
 use std::{
+  collections::HashMap,
   fs,
   path::{Path, PathBuf},
 };
 
+use itertools::Itertools;
 use strum::IntoEnumIterator;
 
 use crate::{
   core::Result,
   errors::{to_error, Error},
   package_manager::PackageManagerKind,
-  utils::hash::Hashable,
+  utils::{hash::Hashable, option::both_and_then},
 };
 
 #[derive(Debug, PartialEq)]
@@ -27,32 +29,51 @@ impl Hashable for Lockfile {
 impl Lockfile {
   pub fn new(base_dir: impl AsRef<Path>) -> Result<Self> {
     let base_dir = base_dir.as_ref().to_path_buf();
-    match Lockfile::try_to_read_lockfile(&base_dir) {
-      Some((kind, path)) => Ok(Self { kind, path }),
-      None => Err(Error::NoLockfile(base_dir)),
-    }
+    Lockfile::try_to_read_lockfile(base_dir).map(|(kind, path)| Self { kind, path })
   }
 
-  fn try_to_read_lockfile(base_dir: impl AsRef<Path>) -> Option<(PackageManagerKind, PathBuf)> {
-    for kind in PackageManagerKind::iter() {
-      for lockfile in kind.to_lockfile_names() {
-        let path = base_dir.as_ref().join(lockfile);
-        if path.exists() {
-          return Some((kind, path));
-        }
+  fn try_to_read_lockfile(base_dir: PathBuf) -> Result<(PackageManagerKind, PathBuf)> {
+    let kinds = PackageManagerKind::iter()
+      .filter_map(|kind| {
+        kind.to_lockfile_names().iter().find_map(|lockfile| {
+          let path = base_dir.join(*lockfile);
+          path.exists().then_some((kind, path))
+        })
+      })
+      .collect::<HashMap<_, _>>();
+
+    match kinds.len() {
+      0..=1 => kinds
+        .iter()
+        .next()
+        .map(|(kind, path)| (*kind, path.clone()))
+        .ok_or(Error::NoLockfile(base_dir)),
+      2 =>
+      // priority to Bun if lockfiles for Bun and Yarn coexist
+      // Bun has a option to generate yarn.lock (v1) as said in https://bun.sh/docs/install/lockfile
+      {
+        both_and_then(
+          kinds.get_key_value(&PackageManagerKind::Bun),
+          kinds.contains_key(&PackageManagerKind::Yarn).then_some(()),
+        )
+        .map(|((kind, path), _)| (*kind, path.clone()))
+        .ok_or(Error::MultipleLockfiles(
+          base_dir,
+          kinds.into_values().sorted().collect_vec(),
+        ))
       }
+      _ => Err(Error::MultipleLockfiles(
+        base_dir,
+        kinds.into_values().sorted().collect_vec(),
+      )),
     }
-    None
   }
 }
 
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::{
-    test_each,
-    utils::{hash::Hash, path::to_absolute_path},
-  };
+  use crate::{test_each, utils::hash::Hash};
 
   struct NewTestCase {
     input: &'static str,
@@ -96,18 +117,40 @@ mod tests {
         PathBuf::from("./tests/fixtures/lockfile/bun/bun.lockb")
       ),
     },
+    "bun_yarn" => NewTestCase {
+      input: "./tests/fixtures/lockfile/bun_yarn",
+      expected: (
+        PackageManagerKind::Bun,
+        PathBuf::from("./tests/fixtures/lockfile/bun_yarn/bun.lockb")
+      ),
+    },
   );
 
   #[test]
   fn test_new_nope() {
     let lockfile = Lockfile::new("tests/fixtures/lockfile/nope");
     assert_eq!(
-      lockfile.unwrap_err().to_string(),
-      format!(
-        "No lockfile at: `{}`",
-        to_absolute_path("tests/fixtures/lockfile/nope")
-          .unwrap()
-          .to_string_lossy()
+      lockfile.unwrap_err(),
+      Error::NoLockfile(PathBuf::from("tests/fixtures/lockfile/nope"))
+    );
+  }
+
+  #[test]
+  fn test_new_multiple() {
+    let lockfile = Lockfile::new("tests/fixtures/lockfile/multiple");
+    assert_eq!(
+      lockfile.unwrap_err(),
+      Error::MultipleLockfiles(
+        PathBuf::from("tests/fixtures/lockfile/multiple"),
+        [
+          "tests/fixtures/lockfile/multiple/bun.lockb",
+          "tests/fixtures/lockfile/multiple/package-lock.json",
+          "tests/fixtures/lockfile/multiple/pnpm-lock.yaml",
+          "tests/fixtures/lockfile/multiple/yarn.lock",
+        ]
+        .iter()
+        .map(PathBuf::from)
+        .collect_vec()
       )
     );
   }

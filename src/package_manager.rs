@@ -71,7 +71,7 @@ impl PackageManager {
   }
 }
 
-#[derive(EnumIter, Serialize, Deserialize, Hash, Clone, Copy, Debug, PartialEq, Default)]
+#[derive(EnumIter, Serialize, Deserialize, Hash, Clone, Copy, Debug, Eq, PartialEq, Default)]
 pub enum PackageManagerKind {
   #[default]
   Npm,
