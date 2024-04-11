@@ -1,4 +1,9 @@
-use std::{path::Path, process::Command, vec};
+use std::{
+  io::{BufRead, BufReader},
+  path::Path,
+  process::{Command, Stdio},
+  thread, vec,
+};
 
 use serde::{Deserialize, Serialize};
 use strum_macros::EnumIter;
@@ -51,23 +56,68 @@ impl PackageManager {
     let base_dir = base_dir.as_ref().to_path_buf();
     let to_error =
       |message: String| Error::FailedToInstallDependencies(self.clone(), base_dir.clone(), message);
-    let output = Command::new(&self.executable_name)
+    let mut child = Command::new(&self.executable_name)
       .arg(&self.install_sub_command)
       .current_dir(&base_dir)
-      .output()
+      .stdout(Stdio::piped())
+      .stderr(Stdio::piped())
+      .spawn()
       .map_err(|error| to_error(error.to_string()))?;
 
-    // TODO: stream
-    let text = String::from_utf8_lossy(&output.stdout);
-    println!("{}", text);
+    let stdout_reader = BufReader::new(
+      child
+        .stdout
+        .take()
+        .ok_or(to_error("stdout is not available".to_string()))?,
+    );
+    let stderr_reader = BufReader::new(
+      child
+        .stdout
+        .take()
+        .ok_or(to_error("stderr is not available".to_string()))?,
+    );
 
-    if output.status.success() {
-      Ok(())
-    } else {
-      Err(to_error(
-        String::from_utf8_lossy(&output.stderr).to_string(),
-      ))
-    }
+    thread::spawn(move || {
+      for line in stdout_reader.lines() {
+        let line = line.map_err(|error| {
+          Error::FailedToInstallDependencies(self.clone(), base_dir.clone(), error.to_string())
+        });
+        // let line = line.map_err(|error| to_error(error.to_string()));
+        if let Ok(line) = line {
+          println!("{}", line);
+        }
+      }
+    });
+    thread::spawn(move || {
+      for line in stderr_reader.lines() {
+        let line = line.map_err(|error| {
+          Error::FailedToInstallDependencies(self.clone(), base_dir.clone(), error.to_string())
+        });
+        // let line = line.map_err(|error| to_error(error.to_string()));
+        if let Ok(line) = line {
+          println!("{}", line);
+        }
+      }
+    });
+
+    child
+      .wait()
+      .map_err(|error| to_error(error.to_string()))
+      .and_then(|status| {
+        if status.success() {
+          Ok(())
+        } else {
+          Err(Error::Any("".into()))
+          // Err(to_error(format!(
+          //   "Command exited with {} status",
+          //   status
+          //     .code()
+          //     .map(|code| code.to_string())
+          //     .unwrap_or("non-zero".into())
+          // )))
+        }
+      });
+    Ok(())
   }
 }
 

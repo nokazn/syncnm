@@ -108,6 +108,7 @@ impl Cache {
   pub fn save(&self, key: impl Into<String>) -> Result<Self> {
     let key = key.into();
     let cache = self.cache_dir.join(&key);
+    dbg!(&cache);
     fs::create_symlink(&self.target_dir, cache).or::<Error>(Ok(()))?;
     let metadata = Metadata::new(&self.cache_dir)?;
     // TODO: branch and commit
@@ -115,6 +116,7 @@ impl Cache {
     Ok(self.clone())
   }
 
+  // TOOD+ 1 -> metadata, 2 -> symlink
   fn find_current_cache(&self) -> Option<(PathBuf, Hash)> {
     let current_hash = Metadata::new(&self.cache_dir).ok()?.contents.current_hash?;
     let current_path = fs::exists_dir(self.cache_dir.join(current_hash.to_string())).ok()?;
