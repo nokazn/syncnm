@@ -11,5 +11,10 @@
     "editor.defaultFormatter": "dprint.dprint",
     "editor.formatOnSave": true
   },
-  "nixEnvSelector.nixFile": "${workspaceRoot}/shell.nix"
+  "nixEnvSelector.nixFile": "${workspaceRoot}/shell.nix",
+  "workbench.colorCustomizations": {
+    "activityBar.background": "#033332",
+    "titleBar.activeBackground": "#044846",
+    "titleBar.activeForeground": "#E9FEFD"
+  }
 }

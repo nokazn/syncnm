@@ -3,11 +3,9 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
-use crate::core::Result;
+use crate::core::{Result, APP_NAME};
 use crate::errors::{to_error, Error, Paths};
 use crate::utils::{fs, hash::Hash};
-
-pub const DEFAULT_CACHE_DIR: &str = ".cache/syncnm";
 
 #[derive(Deserialize, Serialize, Clone, PartialEq, Debug, Default)]
 struct CacheMeta {
@@ -94,7 +92,10 @@ impl Cache {
     let target_dir = fs::exists_dir(target_dir)?;
     let cache_dir = cache_dir
       .map(|c| c.as_ref().to_path_buf())
-      .unwrap_or(base_dir.join(DEFAULT_CACHE_DIR));
+      .or(dirs::cache_dir().map(|c| c.join(APP_NAME)))
+      .ok_or(Error::NotAccessible(PathBuf::from(
+        "Cache directory in your environment",
+      )))?;
     let cache_dir = fs::exists_dir(&cache_dir)
       .or_else(|_| fs::make_dir_if_not_exists(&cache_dir).map(|_| cache_dir))?;
 
@@ -138,4 +139,28 @@ impl Cache {
       Err(Error::NotDir(cache))
     }
   }
+}
+
+mod tests {
+  use super::*;
+  use std::path::PathBuf;
+
+  use crate::test_each;
+
+  struct CacheNewTestCase {
+    input: (PathBuf, PathBuf, Option<PathBuf>),
+    expected: (PathBuf, PathBuf, Option<PathBuf>),
+  }
+
+  test_each!(
+    test_cache_new,
+    |case: CacheNewTestCase| {
+      let cache = Cache::new(case.input.0, case.input.1, case.input.2);
+      assert_eq!(cache.is_ok(), case.expected.is_ok());
+    },
+    "1" => CacheNewTestCase {
+      input: (PathBuf::from("src"), PathBuf::from("src"), None),
+      expected: Ok(()),
+    },
+  );
 }

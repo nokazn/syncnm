@@ -2,10 +2,7 @@ use std::path::PathBuf;
 
 use clap::{value_parser, Arg, Command};
 
-use crate::{
-  cache::DEFAULT_CACHE_DIR,
-  core::{self, APP_NAME},
-};
+use crate::core::{self, APP_NAME};
 
 const INSTALL_CMD: &str = "install";
 const RUN_CMD: &str = "run";
@@ -26,7 +23,8 @@ pub fn run() {
     .long("cache-dir")
     .short('c')
     .help(format!(
-      "A path to a local project to install ({DEFAULT_CACHE_DIR} by default) ",
+      // TODO
+      "A path to a local project to install (by default) ",
     ));
 
   let cli = Command::new(APP_NAME)

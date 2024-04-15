@@ -31,7 +31,7 @@ pub trait Hashable {
         let mut generator = Sha256::new();
         generator.update(bytes);
         let raw_hash = generator.finalize();
-        let hash = BASE32_NOPAD.encode(&raw_hash[..20]).to_lowercase();
+        let hash = BASE32_NOPAD.encode(&raw_hash[..12]).to_lowercase();
         Ok(Hash(hash))
       }
       Err(error) => Err(to_error(error)),
