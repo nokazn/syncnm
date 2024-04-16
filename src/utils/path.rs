@@ -93,8 +93,11 @@ pub fn clean_path_separator(path: impl AsRef<Path>) -> PathBuf {
   #[cfg(windows)]
   {
     // if this passes tests, this unwrap never fails
-    let r = Regex::new(r"(^|[^\\])/+").unwrap();
-    PathBuf::from(r.replace_all(&path, "${1}\\").to_string())
+    let separator = Regex::new(r"(^|[^\\])/+").unwrap();
+    let prefix = Regex::new(r"^\\{2}\?\\").unwrap();
+    let path = separator.replace_all(&path, "${1}\\");
+    let path = prefix.replace(&path, "");
+    PathBuf::from(path.to_string())
   }
 }
 
