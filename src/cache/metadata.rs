@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
-use crate::errors::{to_error, Error, Paths};
+use crate::errors::{to_error, Error};
 use crate::utils::path::{to_dir_key, DirKey};
 use crate::utils::{fs, hash::Hash};
 
@@ -37,7 +37,7 @@ impl Metadata {
           contents,
           file_path: file_path.clone(),
         })
-        .map_err(|error| Error::Parse(Paths::One(file_path), error.to_string()).into()),
+        .map_err(|error| Error::Parse(vec![file_path], error.to_string()).into()),
       Err(_) => {
         let v = Self {
           file_path: file_path.clone(),
@@ -73,7 +73,7 @@ impl Metadata {
     let mut contents = self.contents.clone();
     contents.insert(dir_key, contents_value);
     let json = serde_json::to_string(&contents)
-      .map_err(|error| Error::Parse(Paths::One(self.file_path.clone()), error.to_string()))?;
+      .map_err(|error| Error::Parse(vec![self.file_path.clone()], error.to_string()))?;
     fs::write(&self.file_path, json)?;
     Ok(Self {
       contents,

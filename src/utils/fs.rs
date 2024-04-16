@@ -6,7 +6,7 @@ use std::{
 use anyhow::Result;
 
 use crate::{
-  errors::{to_error, Error, Paths},
+  errors::{to_error, Error},
   utils::path::to_absolute_path,
 };
 
@@ -38,7 +38,7 @@ pub fn make_dir_if_not_exists(dir: impl AsRef<Path>) -> Result<PathBuf> {
 
 pub fn rename(from: impl AsRef<Path>, to: impl AsRef<Path>) -> Result<()> {
   let to = to.as_ref().to_path_buf();
-  let parent = &to.parent().ok_or(Error::NoEntry(Paths::One(to.clone())))?;
+  let parent = &to.parent().ok_or(Error::NoEntry(vec![to.clone()]))?;
   make_dir_if_not_exists(parent)?;
   fs::remove_dir_all(&to).unwrap_or_default();
   fs::rename(&from, &to).map_err(to_error)
@@ -47,7 +47,7 @@ pub fn rename(from: impl AsRef<Path>, to: impl AsRef<Path>) -> Result<()> {
 #[cfg(unix)]
 pub fn create_symlink(from: impl AsRef<Path>, to: impl AsRef<Path>) -> Result<()> {
   let to = to.as_ref().to_path_buf();
-  let parent = &to.parent().ok_or(Error::NoEntry(Paths::One(to.clone())))?;
+  let parent = &to.parent().ok_or(Error::NoEntry(vec![to.clone()]))?;
   make_dir_if_not_exists(parent)?;
   fs::remove_dir_all(&to).unwrap_or_default();
   std::os::unix::fs::symlink(&from, &to).map_err(to_error)
@@ -56,7 +56,7 @@ pub fn create_symlink(from: impl AsRef<Path>, to: impl AsRef<Path>) -> Result<()
 #[cfg(windows)]
 pub fn create_symlink(from: impl AsRef<Path>, to: impl AsRef<Path>) -> Result<()> {
   let to = to.as_ref().to_path_buf();
-  let parent = &to.parent().ok_or(Error::NoEntry(Paths::One(to.clone())))?;
+  let parent = &to.parent().ok_or(Error::NoEntry(vec![to.clone()]))?;
   make_dir_if_not_exists(parent)?;
   fs::remove_dir_all(&to).unwrap_or_default();
   std::os::windows::fs::symlink_dir(&from, &to).map_err(to_error)

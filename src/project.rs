@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use strum::IntoEnumIterator;
 
 use crate::{
-  errors::{to_error, Error, Paths},
+  errors::{to_error, Error},
   package_manager::PackageManagerKind,
   utils::hash::Hashable,
   workspaces::Workspaces,
@@ -59,8 +59,8 @@ impl PackageJson {
     let contents = fs::read_to_string(&file_path);
     match contents {
       Ok(contents) => serde_json::from_str::<Self>(&contents)
-        .map_err(|error| Error::Parse(Paths::One(file_path), error.to_string()).into()),
-      Err(_) => Err(Error::NoEntry(Paths::One(file_path)).into()),
+        .map_err(|error| Error::Parse(vec![file_path], error.to_string()).into()),
+      Err(_) => Err(Error::NoEntry(vec![file_path]).into()),
     }
   }
 }

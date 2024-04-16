@@ -9,64 +9,65 @@ use crate::{package_manager::PackageManager, utils::path::to_absolute_path};
 pub enum Error {
   #[error(
     "Cannot access to a file or a directory: {}",
-    stringify_path(&Paths::One(.0.to_path_buf()))
+    stringify_path(vec![.0.to_path_buf()])
   )]
   NotAccessible(PathBuf),
 
   #[error(
     "No such a file or a directory: {}",
-    stringify_path(.0)
+    stringify_path(.0.to_vec())
   )]
-  NoEntry(Paths),
+  NoEntry(Vec<PathBuf>),
 
   #[error(
     "Not a directory: {}",
-    stringify_path(&Paths::One(.0.to_path_buf())))]
+    stringify_path(vec![.0.to_path_buf()])
+  )]
   NotDir(PathBuf),
 
   #[error(
     "No lockfile at {}",
-    stringify_path(&Paths::One(.0.to_path_buf()))
+    stringify_path(vec![.0.to_path_buf()])
   )]
   NoLockfile(PathBuf),
 
   #[error(
     "Multiple lockfiles at {}: {}",
-    stringify_path(&Paths::One(.0.to_path_buf())),
-    stringify_path(&Paths::Multiple(.1.to_vec()))
+    stringify_path(vec![.0.to_path_buf()]),
+    stringify_path(.1.to_vec())
   )]
   MultipleLockfiles(PathBuf, Vec<PathBuf>),
 
   #[error(
     "Invalid workspace: {}",
-    stringify_path(&Paths::One(.0.to_path_buf()))
+    stringify_path(vec![.0.to_path_buf()])
   )]
   InvalidWorkspace(PathBuf),
 
   #[error(
     "\"name\" or \"version\" are missing in {}",
-    stringify_path(&Paths::One(.0.to_path_buf()))
+    stringify_path(vec![.0.to_path_buf()])
   )]
   InvalidPackageJsonFieldsForYarn(PathBuf),
 
   #[error(
     "\"private\" should be set to true in {}",
-    stringify_path(&Paths::One(.0.to_path_buf()))
+    stringify_path(vec![.0.to_path_buf()])
   )]
   InvalidPackageJsonPrivateForYarn(PathBuf),
 
   #[error(
     "\"name\" is missing in {}",
-    stringify_path(&Paths::One(.0.to_path_buf()))
+    stringify_path(vec![.0.to_path_buf()])
   )]
   InvalidPackageJsonFieldsForBun(PathBuf),
 
   #[error(
     "Failed to parse {}: {}",
-    stringify_path(.0),
+    stringify_path(.0.to_vec()),
     .1
   )]
-  Parse(Paths, String),
+  Parse(Vec<PathBuf>, String),
 
   #[error(
     "Invalid glob pattern: {:?}",
@@ -115,30 +116,18 @@ impl Error {
   }
 }
 
-#[derive(Debug, PartialEq)]
-pub enum Paths {
-  One(PathBuf),
-  Multiple(Vec<PathBuf>),
-}
-
 /// convert to stringified absolute path
-fn stringify_path(paths: &Paths) -> String {
-  match paths {
-    Paths::One(path) => to_absolute_path(path)
-      .unwrap_or(path.clone())
-      .to_string_lossy()
-      .to_string(),
-    Paths::Multiple(paths) => paths
-      .iter()
-      .map(|path| {
-        to_absolute_path(path)
-          .unwrap_or(path.clone())
-          .to_string_lossy()
-          .to_string()
-      })
-      .collect_vec()
-      .join(", "),
-  }
+fn stringify_path(paths: Vec<PathBuf>) -> String {
+  paths
+    .iter()
+    .map(|path| {
+      to_absolute_path(path)
+        .unwrap_or(path.clone())
+        .to_string_lossy()
+        .to_string()
+    })
+    .collect_vec()
+    .join(", ")
 }
 
 fn stringify_install_command(package_manager: &PackageManager) -> String {
