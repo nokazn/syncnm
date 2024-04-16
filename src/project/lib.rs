@@ -1,9 +1,4 @@
-use std::{
-  collections::BTreeMap,
-  fs,
-  hash::Hash,
-  path::{Path, PathBuf},
-};
+use std::{collections::BTreeMap, hash::Hash, path::Path};
 
 use anyhow::Result;
 use regex::Regex;
@@ -12,20 +7,20 @@ use strum::IntoEnumIterator;
 
 use crate::{
   errors::{to_error, Error},
-  package_manager::PackageManagerKind,
+  project::workspaces::Workspaces,
   utils::hash::Hashable,
-  workspaces::Workspaces,
 };
 
-type Dependencies = BTreeMap<String, String>;
+use super::{
+  dependencies::{PackageDependencies, WorkspacePackage},
+  package_json::{to_package_json_path, PackageJson},
+  package_manager::PackageManagerKind,
+};
 
-fn to_package_json_path(base_dir: impl AsRef<Path>) -> PathBuf {
-  const PACKAGE_JSON: &str = "package.json";
-  base_dir.as_ref().join(PACKAGE_JSON)
-}
+pub type Dependencies = BTreeMap<String, String>;
 
 /// Ignore `node_modules` directory
-fn is_valid_base_dir(base_dir: impl AsRef<Path>) -> bool {
+pub fn is_valid_base_dir(base_dir: impl AsRef<Path>) -> bool {
   const IGNORED: [&str; 1] = ["node_modules"];
   let path = base_dir.as_ref().to_path_buf();
   if !path.is_dir() {
@@ -35,118 +30,6 @@ fn is_valid_base_dir(base_dir: impl AsRef<Path>) -> bool {
   !IGNORED.iter().any(|ignored| path.contains(ignored))
 }
 
-///
-/// --------------------------------------------------
-///
-#[allow(non_snake_case)]
-#[derive(Serialize, Deserialize, Hash, Debug, Clone, PartialEq, Default)]
-struct PackageJson {
-  name: Option<String>,
-  version: Option<String>,
-  private: Option<bool>,
-  packageManager: Option<String>,
-  dependencies: Option<Dependencies>,
-  devDependencies: Option<Dependencies>,
-  peerDependencies: Option<Dependencies>,
-  overrides: Option<Dependencies>,
-  optionalDependencies: Option<Dependencies>,
-  workspaces: Option<Vec<String>>,
-}
-
-impl PackageJson {
-  fn new(base_dir: impl AsRef<Path>) -> Result<Self> {
-    let file_path = to_package_json_path(base_dir);
-    let contents = fs::read_to_string(&file_path);
-    match contents {
-      Ok(contents) => serde_json::from_str::<Self>(&contents)
-        .map_err(|error| Error::Parse(vec![file_path], error.to_string()).into()),
-      Err(_) => Err(Error::NoEntry(vec![file_path]).into()),
-    }
-  }
-}
-
-///
-/// --------------------------------------------------
-///
-#[derive(Serialize, Deserialize, Hash, Clone, Debug, PartialEq, Default)]
-struct PackageDependencies {
-  dependencies: Dependencies,
-  dev_dependencies: Dependencies,
-  peer_dependencies: Dependencies,
-  overrides: Dependencies,
-  optional_dependencies: Dependencies,
-}
-
-impl PackageDependencies {
-  fn new(raw: PackageJson) -> Self {
-    Self {
-      dependencies: raw.dependencies.unwrap_or_default(),
-      dev_dependencies: raw.devDependencies.unwrap_or_default(),
-      peer_dependencies: raw.peerDependencies.unwrap_or_default(),
-      optional_dependencies: raw.optionalDependencies.unwrap_or_default(),
-      overrides: raw.overrides.unwrap_or_default(),
-    }
-  }
-}
-
-///
-/// --------------------------------------------------
-///
-#[derive(Serialize, Deserialize, Hash, Clone, Debug, PartialEq, Default)]
-struct WorkspacePackage {
-  original: PackageJson,
-  base_dir: PathBuf,
-  kind: PackageManagerKind,
-  dependencies: PackageDependencies,
-}
-
-impl WorkspacePackage {
-  fn new(base_dir: impl AsRef<Path>, kind: PackageManagerKind) -> Result<Self> {
-    let base_dir = base_dir.as_ref().to_path_buf();
-    if !is_valid_base_dir(&base_dir) {
-      return Err(Error::InvalidWorkspace(base_dir).into());
-    }
-    let original = PackageJson::new(&base_dir)?;
-    Ok(Self {
-      original: original.clone(),
-      base_dir,
-      kind,
-      dependencies: PackageDependencies::new(original),
-    })
-  }
-
-  fn validate_package_json_fields(self, base_dir: impl AsRef<Path>) -> Result<Self> {
-    let package_json_path = to_package_json_path(&base_dir);
-    match self.kind {
-      PackageManagerKind::Yarn
-        if self.original.name.is_none() || self.original.version.is_none() =>
-      {
-        Err(Error::InvalidPackageJsonFieldsForYarn(package_json_path).into())
-      }
-      PackageManagerKind::Bun if self.original.name.is_none() => {
-        Err(Error::InvalidPackageJsonFieldsForBun(package_json_path).into())
-      }
-      _ => Ok(self),
-    }
-  }
-
-  fn get_package_name(&self) -> (String, String) {
-    let name = self.original.name.clone().unwrap_or(
-      self
-        .base_dir
-        .file_name()
-        .unwrap_or(self.base_dir.as_os_str())
-        .to_string_lossy()
-        .to_string(),
-    );
-    let fallback = self.base_dir.to_string_lossy().to_string();
-    (name, fallback)
-  }
-}
-
-///
-/// --------------------------------------------------
-///
 #[derive(Serialize, Deserialize, Hash, Clone, PartialEq, Debug, Default)]
 pub struct ProjectRoot {
   original: PackageJson,
@@ -284,9 +167,11 @@ impl ProjectRoot {
 
 #[cfg(test)]
 mod tests {
+  use std::{fs, path::PathBuf};
+  use tempfile::TempDir;
+
   use super::*;
   use crate::{btree_map, test_each, test_each_serial, utils::path::to_absolute_path};
-  use tempfile::TempDir;
 
   struct ToPackageJsonTestCase {
     input: PathBuf,
@@ -372,7 +257,7 @@ mod tests {
     );
   }
 
-  test_each!(
+  test_each_serial!(
     test_resolve_package_manager_kind,
     test_resolve_package_manager_kind_each,
     "npm" => ResolvePackageManagerKindTestCase {

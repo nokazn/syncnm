@@ -10,9 +10,10 @@ use strum::IntoEnumIterator;
 
 use crate::{
   errors::{to_error, Error},
-  package_manager::PackageManagerKind,
   utils::{hash::Hashable, option::both_and_then},
 };
+
+use super::package_manager::PackageManagerKind;
 
 #[derive(Debug, PartialEq)]
 pub struct Lockfile {

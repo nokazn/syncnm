@@ -3,7 +3,7 @@ use std::{fmt::Debug, path::PathBuf};
 use itertools::Itertools;
 use thiserror::Error;
 
-use crate::{package_manager::PackageManager, utils::path::to_absolute_path};
+use crate::{project::PackageManager, utils::path::to_absolute_path};
 
 #[derive(Debug, Error, PartialEq)]
 pub enum Error {

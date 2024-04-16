@@ -6,7 +6,9 @@ use std::{
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
-use crate::{errors::Error, package_manager::PackageManagerKind, utils};
+use crate::{errors::Error, utils};
+
+use super::package_manager::PackageManagerKind;
 
 #[derive(Debug)]
 pub struct Workspaces {

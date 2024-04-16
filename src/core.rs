@@ -4,9 +4,7 @@ use anyhow::Result;
 
 use crate::{
   cache::Cache,
-  lockfile::Lockfile,
-  package_manager::PackageManager,
-  project::ProjectRoot,
+  project::{Lockfile, PackageManager, ProjectRoot},
   utils::{
     hash::{Hash, Hashable},
     path::to_dir_key,
