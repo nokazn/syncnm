@@ -71,3 +71,25 @@ fn generate_cache_key(
 fn to_node_modules_dir(base_dir: impl AsRef<Path>) -> PathBuf {
   base_dir.as_ref().to_path_buf().join("node_modules")
 }
+
+#[cfg(test)]
+mod tests {
+  use regex::Regex;
+  use serial_test::serial;
+
+  use super::*;
+
+  #[serial]
+  #[test]
+  fn test_generate_cache_key() -> Result<()> {
+    let base_dir = PathBuf::from("tests/fixtures/core");
+    let lockfile = Lockfile::new(&base_dir)?;
+    let project = ProjectRoot::new(&base_dir, Some(lockfile.kind))?;
+    let result = generate_cache_key(&base_dir, &lockfile, &project)?;
+    let r = Regex::new(
+      r"^l3cuczxmteircrzf6dw52asj6vt6opt2-ilchfsie572gsieon7up5cbljysxda5p-[a-z_]+tests_fixtures_core$",
+    );
+    assert!(r.unwrap().is_match(&result.to_string()));
+    Ok(())
+  }
+}
