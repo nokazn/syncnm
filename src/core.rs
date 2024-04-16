@@ -28,14 +28,16 @@ pub fn run(base_dir: impl AsRef<Path>, cache_dir: Option<impl AsRef<Path>>) -> R
   let project_root = ProjectRoot::new(&base_dir, lockfile_kind)?;
 
   if let Ok(lockfile) = &lockfile {
-    if both_and_then(
-      Cache::new(&base_dir, &node_modules_dir, cache_dir.as_ref()),
-      generate_cache_key(lockfile, &project_root),
-    )
-    .and_then(|(cache, cache_key)| cache.restore(cache_key.to_string()))
-    .is_ok()
-    {
-      return Ok(());
+    let cache = Cache::new(&base_dir, &node_modules_dir, cache_dir.as_ref());
+    let cache_hash_key = generate_cache_key(&base_dir, lockfile, &project_root);
+    match (cache.as_ref(), cache_hash_key) {
+      (Ok(cache), Ok(cache_hash_key)) => {
+        match cache.restore(&base_dir, &cache_hash_key) {
+          Ok(_) => return Ok(()),
+          _ => {}
+        };
+      }
+      _ => {}
     }
   }
 
@@ -43,21 +45,27 @@ pub fn run(base_dir: impl AsRef<Path>, cache_dir: Option<impl AsRef<Path>>) -> R
   package_manager.execute_install(&base_dir)?;
 
   let lockfile = lockfile.or(Lockfile::new(&base_dir))?;
-  let cache_key = generate_cache_key(&lockfile, &project_root)?;
+  let cache_key = generate_cache_key(&base_dir, &lockfile, &project_root)?;
   // reevaluate the cache because cache directory may change
   let cache = Cache::new(&base_dir, &node_modules_dir, cache_dir.as_ref());
   cache.and_then(|cache| cache.save(cache_key.to_string()))?;
   Ok(())
 }
 
-fn generate_cache_key(lockfile: &Lockfile, project: &ProjectRoot) -> Result<Hash> {
+fn generate_cache_key(
+  base_dir: &PathBuf,
+  lockfile: &Lockfile,
+  project: &ProjectRoot,
+) -> Result<Hash> {
   let lockfile_hash = lockfile.generate_hash()?;
   let project_hash = project.generate_hash()?;
+  let base_dir = to_dir_key(base_dir);
   Ok(Hash(
     format!(
-      "{}-{}",
+      "{}-{}-{}",
       &lockfile_hash.to_string(),
-      &project_hash.to_string()
+      &project_hash.to_string(),
+      &base_dir.to_string()
     )
     .to_string(),
   ))

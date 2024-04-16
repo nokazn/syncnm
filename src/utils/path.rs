@@ -1,13 +1,15 @@
 use std::{
   env::{current_dir, set_current_dir},
   io,
-  path::{Path, PathBuf},
+  path::{Component, Path, PathBuf},
 };
 
+use itertools::Itertools;
 use path_clean::PathClean;
 
 #[cfg(test)]
 use regex::Regex;
+use serde::{Deserialize, Serialize};
 
 use crate::{core::Result, errors::Error};
 
@@ -25,6 +27,55 @@ pub fn to_absolute_path(path: impl AsRef<Path>) -> Result<PathBuf> {
       .join(path)
   };
   Ok(PathClean::clean(&absolute_path))
+}
+
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Clone)]
+pub struct DirKey(pub String);
+
+impl DirKey {
+  pub fn to_string(&self) -> String {
+    self.0.to_string()
+  }
+}
+
+pub fn to_dir_key(path: impl AsRef<Path>) -> DirKey {
+  let mut to_dir_component: Box<dyn FnMut(&Component<'_>) -> Option<String>> = {
+    let home_dir = dirs::home_dir();
+    match home_dir {
+      Some(home_dir) => {
+        let to_os_ascii_lowercase = |c: Component<'_>| c.as_os_str().to_ascii_lowercase();
+        let home_components = home_dir
+          .components()
+          .map(to_os_ascii_lowercase)
+          .collect_vec();
+        Box::new(move |c: &Component<'_>| match c {
+          Component::Normal(p) => {
+            if home_components.contains(&to_os_ascii_lowercase(*c)) {
+              None
+            } else {
+              Some(p.to_string_lossy().to_string())
+            }
+          }
+          _ => None,
+        })
+      }
+      None => Box::new(|c: &Component<'_>| match c {
+        Component::Normal(p) => Some(p.to_string_lossy().to_string()),
+        _ => None,
+      }),
+    }
+  };
+  let path = {
+    let p = path.as_ref();
+    to_absolute_path(p).unwrap_or(p.to_path_buf())
+  };
+  DirKey(
+    path
+      .components()
+      .into_iter()
+      .filter_map(|c| to_dir_component(&c))
+      .join("_"),
+  )
 }
 
 #[cfg(test)]
@@ -203,6 +254,45 @@ mod tests {
         base_dir: Some(tmp_dir.clone()),
         expected: tmp_dir.canonicalize().unwrap().join("foo"),
       }
+    },
+  );
+
+  struct ToDirKeyTestCase {
+    input: PathBuf,
+    expected: &'static str,
+  }
+
+  fn test_to_dir_key_each(case: &ToDirKeyTestCase) {
+    let dir_key = to_dir_key(&case.input).to_string();
+    if case.input.is_relative() {
+      assert!(dir_key.ends_with(case.expected));
+    } else {
+      assert_eq!(dir_key, case.expected);
+    }
+  }
+
+  test_each!(
+    test_to_dir_key,
+    test_to_dir_key_each,
+    "1" => &ToDirKeyTestCase {
+      input: dirs::home_dir().unwrap().join("a/b/c/d"),
+      expected: "a_b_c_d"
+    },
+    "2" => &ToDirKeyTestCase {
+      input: dirs::home_dir().unwrap().join("."),
+      expected: ""
+    },
+    "3" => &ToDirKeyTestCase {
+      input: PathBuf::from("a/b/c/d"),
+      expected: "a_b_c_d"
+    },
+    "4" => &ToDirKeyTestCase {
+      input: PathBuf::from("./a/b/c/d"),
+      expected: "a_b_c_d"
+    },
+    "5" => &ToDirKeyTestCase {
+      input: PathBuf::from("./a/b/c/../c/d"),
+      expected: "a_b_c_d"
     },
   );
 
