@@ -1,5 +1,5 @@
 #[cfg(test)]
-use crate::core::Result;
+use anyhow::Result;
 
 #[cfg(test)]
 use std::panic;

@@ -3,8 +3,9 @@ use std::{
   path::{Path, PathBuf},
 };
 
+use anyhow::Result;
+
 use crate::{
-  core::Result,
   errors::{to_error, Error, Paths},
   utils::path::to_absolute_path,
 };
@@ -16,14 +17,16 @@ pub fn exists_dir(dir: impl AsRef<Path>) -> Result<PathBuf> {
     match &original {
       Ok(original) if original.is_dir() => original
         .canonicalize()
-        .map_err(|_| Error::NotAccessible(dir)),
-      Ok(_) => Err(Error::NotDir(dir)),
-      Err(_) => Err(Error::NotAccessible(dir)),
+        .map_err(|_| Error::NotAccessible(dir).into()),
+      Ok(_) => Err(Error::NotDir(dir).into()),
+      Err(_) => Err(Error::NotAccessible(dir).into()),
     }
   } else if dir.is_dir() {
-    dir.canonicalize().map_err(|_| Error::NotAccessible(dir))
+    dir
+      .canonicalize()
+      .map_err(|_| Error::NotAccessible(dir).into())
   } else {
-    Err(Error::NotDir(dir))
+    Err(Error::NotDir(dir).into())
   }
 }
 
@@ -79,7 +82,7 @@ mod tests {
 
   struct ExistsDirTestCase {
     dir: &'static str,
-    expected: Result<PathBuf>,
+    expected: Result<PathBuf, Error>,
   }
 
   test_each_serial!(
@@ -99,7 +102,7 @@ mod tests {
             expected_original.canonicalize().unwrap()
           )
         },
-        Err(error) => assert_eq!(&result.unwrap_err(), error)
+        Err(error) => assert_eq!(result.unwrap_err().downcast_ref::<Error>().unwrap(), error)
       }
 
     }),
@@ -194,7 +197,7 @@ mod tests {
     });
 
     fs::remove_dir_all(&base_dir).unwrap();
-    assert_eq!(result, Ok(()));
+    assert!(result.is_ok());
   }
 
   // TODO* fix this test for windows
@@ -264,6 +267,6 @@ mod tests {
     });
 
     fs::remove_dir_all(&base_dir).unwrap();
-    assert_eq!(result, Ok(()));
+    assert!(result.is_ok());
   }
 }

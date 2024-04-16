@@ -1,11 +1,9 @@
-use std::{
-  path::{Path, PathBuf},
-  result,
-};
+use std::path::{Path, PathBuf};
+
+use anyhow::Result;
 
 use crate::{
   cache::Cache,
-  errors::Error,
   lockfile::Lockfile,
   package_manager::PackageManager,
   project::ProjectRoot,
@@ -14,8 +12,6 @@ use crate::{
     path::to_dir_key,
   },
 };
-
-pub type Result<T> = result::Result<T, Error>;
 
 pub const APP_NAME: &str = "syncnm";
 
@@ -30,14 +26,10 @@ pub fn run(base_dir: impl AsRef<Path>, cache_dir: Option<impl AsRef<Path>>) -> R
   if let Ok(lockfile) = &lockfile {
     let cache = Cache::new(&base_dir, &node_modules_dir, cache_dir.as_ref());
     let cache_hash_key = generate_cache_key(&base_dir, lockfile, &project_root);
-    match (cache.as_ref(), cache_hash_key) {
-      (Ok(cache), Ok(cache_hash_key)) => {
-        match cache.restore(&base_dir, &cache_hash_key) {
-          Ok(_) => return Ok(()),
-          _ => {}
-        };
+    if let (Ok(cache), Ok(cache_hash_key)) = (cache.as_ref(), cache_hash_key) {
+      if cache.restore(&base_dir, &cache_hash_key).is_ok() {
+        return Ok(());
       }
-      _ => {}
     }
     if let Ok(cache) = &cache {
       // save the current cache before update node_modules and a lockfile

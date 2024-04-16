@@ -1,9 +1,10 @@
 use std::{path::Path, process::Command, vec};
 
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use strum_macros::EnumIter;
 
-use crate::{core::Result, errors::Error};
+use crate::errors::Error;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct PackageManager {
@@ -49,8 +50,9 @@ impl PackageManager {
 
   pub fn execute_install(self, base_dir: impl AsRef<Path>) -> Result<()> {
     let base_dir = base_dir.as_ref().to_path_buf();
-    let to_error =
-      |message: String| Error::FailedToInstallDependencies(self.clone(), base_dir.clone(), message);
+    let to_error = |message: String| {
+      Error::FailedToInstallDependencies(self.clone(), base_dir.clone(), message).into()
+    };
     let output = Command::new(&self.executable_name)
       .arg(&self.install_sub_command)
       .current_dir(&base_dir)

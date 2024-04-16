@@ -1,9 +1,10 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
-use crate::core::{Result, APP_NAME};
+use crate::core::APP_NAME;
 use crate::errors::{to_error, Error, Paths};
 use crate::utils::path::{to_dir_key, DirKey};
 use crate::utils::{fs, hash::Hash};
@@ -37,7 +38,7 @@ impl Metadata {
           contents,
           file_path: file_path.clone(),
         })
-        .map_err(|error| Error::Parse(Paths::One(file_path), error.to_string())),
+        .map_err(|error| Error::Parse(Paths::One(file_path), error.to_string()).into()),
       Err(_) => {
         let v = Self {
           file_path: file_path.clone(),
@@ -161,13 +162,13 @@ impl Cache {
         }
         // escape the current cache is exists
         fs::rename(&self.target_dir, self.to_cache_path(&current_hash_key))
-          .map_err(|error| error.log_warn(Some("Failed to save the old cache")))
+          .map_err(|error| error.context("Failed to save the old cache"))
           .unwrap_or(());
       }
       // restore the cache
       fs::rename(cache, &self.target_dir).and(Ok(self.clone()))
     } else {
-      Err(Error::NotDir(cache))
+      Err(Error::NotDir(cache).into())
     }
   }
 }

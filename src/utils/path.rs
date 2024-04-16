@@ -1,9 +1,11 @@
 use std::{
   env::{current_dir, set_current_dir},
+  fmt::Display,
   io,
   path::{Component, Path, PathBuf},
 };
 
+use anyhow::Result;
 use itertools::Itertools;
 use path_clean::PathClean;
 
@@ -11,7 +13,7 @@ use path_clean::PathClean;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
-use crate::{core::Result, errors::Error};
+use crate::errors::Error;
 
 pub fn to_absolute_path(path: impl AsRef<Path>) -> Result<PathBuf> {
   let path = path.as_ref();
@@ -32,14 +34,15 @@ pub fn to_absolute_path(path: impl AsRef<Path>) -> Result<PathBuf> {
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Clone)]
 pub struct DirKey(pub String);
 
-impl DirKey {
-  pub fn to_string(&self) -> String {
-    self.0.to_string()
+impl Display for DirKey {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{}", self.0)
   }
 }
 
 pub fn to_dir_key(path: impl AsRef<Path>) -> DirKey {
-  let mut to_dir_component: Box<dyn FnMut(&Component<'_>) -> Option<String>> = {
+  type ToDirComponent = Box<dyn FnMut(&Component<'_>) -> Option<String>>;
+  let mut to_dir_component: ToDirComponent = {
     let home_dir = dirs::home_dir();
     match home_dir {
       Some(home_dir) => {
@@ -72,7 +75,6 @@ pub fn to_dir_key(path: impl AsRef<Path>) -> DirKey {
   DirKey(
     path
       .components()
-      .into_iter()
       .filter_map(|c| to_dir_component(&c))
       .join("_"),
   )
@@ -149,7 +151,8 @@ where
     Err(
       Error::NotAccessible(base_dir.as_ref().to_path_buf())
         .log_debug(&error)
-        .log_error(None),
+        .log_error(None)
+        .into(),
     )
   };
   let cwd = match current_dir() {

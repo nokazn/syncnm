@@ -1,10 +1,11 @@
 use std::fmt::{Debug, Display};
 
+use anyhow::Result;
 use data_encoding::BASE32_NOPAD;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use crate::{core::Result, errors::to_error};
+use crate::errors::to_error;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Clone)]
 pub struct Hash(pub String);
@@ -12,12 +13,6 @@ pub struct Hash(pub String);
 impl Display for Hash {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     write!(f, "{}", self.0)
-  }
-}
-
-impl Hash {
-  pub fn to_string(&self) -> String {
-    self.0.to_string()
   }
 }
 

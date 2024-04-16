@@ -148,6 +148,6 @@ fn stringify_install_command(package_manager: &PackageManager) -> String {
   )
 }
 
-pub fn to_error<E: Debug>(error: E) -> Error {
-  Error::Any(format!("{:?}", error))
+pub fn to_error<E: Debug>(error: E) -> anyhow::Error {
+  Error::Any(format!("{:?}", error)).into()
 }

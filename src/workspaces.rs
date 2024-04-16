@@ -3,10 +3,10 @@ use std::{
   path::{Path, PathBuf},
 };
 
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-  core::Result,
   errors::{Error, Paths},
   package_manager::PackageManagerKind,
   utils,
@@ -69,7 +69,7 @@ impl PnpmWorkspace {
     let file_paths = Self::to_pnpm_workspace(base_dir);
     let contents = Self::read_to_string(&file_paths)?;
     serde_yaml::from_str::<Self>(&contents)
-      .map_err(|error| Error::Parse(Paths::Multiple(file_paths.to_vec()), error.to_string()))
+      .map_err(|error| Error::Parse(Paths::Multiple(file_paths.to_vec()), error.to_string()).into())
   }
 
   fn to_pnpm_workspace(base_dir: impl AsRef<Path>) -> [PathBuf; 2] {
@@ -84,7 +84,7 @@ impl PnpmWorkspace {
         return Ok(contents);
       }
     }
-    Err(Error::NoEntry(Paths::Multiple(file_paths.to_vec())))
+    Err(Error::NoEntry(Paths::Multiple(file_paths.to_vec())).into())
   }
 }
 

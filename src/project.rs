@@ -5,12 +5,12 @@ use std::{
   path::{Path, PathBuf},
 };
 
+use anyhow::Result;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use strum::IntoEnumIterator;
 
 use crate::{
-  core::Result,
   errors::{to_error, Error, Paths},
   package_manager::PackageManagerKind,
   utils::hash::Hashable,
@@ -59,8 +59,8 @@ impl PackageJson {
     let contents = fs::read_to_string(&file_path);
     match contents {
       Ok(contents) => serde_json::from_str::<Self>(&contents)
-        .map_err(|error| Error::Parse(Paths::One(file_path), error.to_string())),
-      Err(_) => Err(Error::NoEntry(Paths::One(file_path))),
+        .map_err(|error| Error::Parse(Paths::One(file_path), error.to_string()).into()),
+      Err(_) => Err(Error::NoEntry(Paths::One(file_path)).into()),
     }
   }
 }
@@ -104,7 +104,7 @@ impl WorkspacePackage {
   fn new(base_dir: impl AsRef<Path>, kind: PackageManagerKind) -> Result<Self> {
     let base_dir = base_dir.as_ref().to_path_buf();
     if !is_valid_base_dir(&base_dir) {
-      return Err(Error::InvalidWorkspace(base_dir));
+      return Err(Error::InvalidWorkspace(base_dir).into());
     }
     let original = PackageJson::new(&base_dir)?;
     Ok(Self {
@@ -121,10 +121,10 @@ impl WorkspacePackage {
       PackageManagerKind::Yarn
         if self.original.name.is_none() || self.original.version.is_none() =>
       {
-        Err(Error::InvalidPackageJsonFieldsForYarn(package_json_path))
+        Err(Error::InvalidPackageJsonFieldsForYarn(package_json_path).into())
       }
       PackageManagerKind::Bun if self.original.name.is_none() => {
-        Err(Error::InvalidPackageJsonFieldsForBun(package_json_path))
+        Err(Error::InvalidPackageJsonFieldsForBun(package_json_path).into())
       }
       _ => Ok(self),
     }
@@ -197,7 +197,7 @@ impl ProjectRoot {
       }
       .validate_package_json_fields(&base_dir)
     } else {
-      Err(Error::NoLockfile(base_dir.as_ref().to_path_buf()))
+      Err(Error::NoLockfile(base_dir.as_ref().to_path_buf()).into())
     }
   }
 
@@ -272,7 +272,9 @@ impl ProjectRoot {
           && !self.original.private.unwrap_or_default() =>
       {
         Err(
-          Error::InvalidPackageJsonPrivateForYarn(to_package_json_path(&base_dir)).log_error(None),
+          Error::InvalidPackageJsonPrivateForYarn(to_package_json_path(&base_dir))
+            .log_error(None)
+            .into(),
         )
       }
       _ => Ok(self),
@@ -434,7 +436,10 @@ mod tests {
       assert_eq!(project_root.root, expected.root);
       assert_eq!(project_root.workspaces, expected.workspaces);
     } else {
-      assert_eq!(project_root.unwrap_err(), case.expected.unwrap_err());
+      assert_eq!(
+        project_root.unwrap_err().downcast::<Error>().unwrap(),
+        case.expected.unwrap_err().downcast::<Error>().unwrap()
+      );
     }
   }
 
@@ -524,7 +529,7 @@ mod tests {
         PathBuf::from("tests/fixtures/workspaces/yarn_private_false"),
         Some(PackageManagerKind::Yarn),
       ),
-      expected:Err(Error::InvalidPackageJsonPrivateForYarn(PathBuf::from("tests/fixtures/workspaces/yarn_private_false/package.json")))
+      expected:Err(Error::InvalidPackageJsonPrivateForYarn(PathBuf::from("tests/fixtures/workspaces/yarn_private_false/package.json")).into())
     },
     "pnpm" => NewTestCase {
       input: (
