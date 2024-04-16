@@ -180,7 +180,11 @@ mod tests {
 
   use crate::{
     test_each,
-    utils::{fs::exists_dir, path::to_absolute_path, result::convert_panic_to_result},
+    utils::{
+      fs::exists_dir,
+      path::{clean_path_separator, to_absolute_path},
+      result::convert_panic_to_result,
+    },
   };
 
   struct CacheNewTestCase {
@@ -194,7 +198,16 @@ mod tests {
     let result = convert_panic_to_result(|| {
       if case.expected.is_ok() {
         assert!(cache.is_ok());
-        assert_eq!(cache.as_ref().unwrap(), &case.expected.unwrap());
+        let cache = cache.as_ref().unwrap();
+        let expected = &case.expected.unwrap();
+        assert_eq!(clean_path_separator(&cache.base_dir), expected.base_dir);
+        assert_eq!(clean_path_separator(&cache.target_dir), expected.target_dir);
+        assert_eq!(clean_path_separator(&cache.cache_dir), expected.cache_dir);
+        assert_eq!(cache.metadata.contents, expected.metadata.contents);
+        assert_eq!(
+          clean_path_separator(&cache.metadata.file_path),
+          expected.metadata.file_path
+        );
       } else {
         assert!(cache.is_err());
       }
