@@ -11,7 +11,7 @@ use crate::{
   project::ProjectRoot,
   utils::{
     hash::{Hash, Hashable},
-    result::both_and_then,
+    path::to_dir_key,
   },
 };
 
@@ -39,16 +39,21 @@ pub fn run(base_dir: impl AsRef<Path>, cache_dir: Option<impl AsRef<Path>>) -> R
       }
       _ => {}
     }
+    if let Ok(cache) = &cache {
+      // save the current cache before update node_modules and a lockfile
+      cache.revoke_current_cache(&base_dir)?;
+    }
   }
 
   let package_manager: PackageManager = project_root.kind.into();
   package_manager.execute_install(&base_dir)?;
 
-  let lockfile = lockfile.or(Lockfile::new(&base_dir))?;
+  // a lockfile may updated after executing install
+  let lockfile = Lockfile::new(&base_dir)?;
   let cache_key = generate_cache_key(&base_dir, &lockfile, &project_root)?;
   // reevaluate the cache because cache directory may change
   let cache = Cache::new(&base_dir, &node_modules_dir, cache_dir.as_ref());
-  cache.and_then(|cache| cache.save(cache_key.to_string()))?;
+  cache.and_then(|cache| cache.save(cache_key))?;
   Ok(())
 }
 

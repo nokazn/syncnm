@@ -6,6 +6,7 @@ use std::{
 use crate::{
   core::Result,
   errors::{to_error, Error, Paths},
+  utils::path::to_absolute_path,
 };
 
 pub fn exists_dir(dir: impl AsRef<Path>) -> Result<PathBuf> {
@@ -26,8 +27,10 @@ pub fn exists_dir(dir: impl AsRef<Path>) -> Result<PathBuf> {
   }
 }
 
-pub fn make_dir_if_not_exists(dir: impl AsRef<Path>) -> Result<()> {
-  fs::create_dir_all(dir).map_err(to_error)
+pub fn make_dir_if_not_exists(dir: impl AsRef<Path>) -> Result<PathBuf> {
+  fs::create_dir_all(&dir)
+    .map_err(to_error)
+    .and(to_absolute_path(dir).map_err(to_error))
 }
 
 pub fn rename(from: impl AsRef<Path>, to: impl AsRef<Path>) -> Result<()> {

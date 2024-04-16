@@ -28,14 +28,14 @@ fmt-dprint *flags:
 
 lint watch="":
   if [[ "{{watch}}" == "--watch" ]]; then \
-    cargo watch -x clippy; \
+    cargo watch -w src -x clippy; \
   else \
     cargo clippy; \
   fi
 
 test watch="":
   if [[ "{{watch}}" == "--watch" ]]; then \
-    cargo watch -x 'test --locked --frozen --all-features -- --nocapture'; \
+    cargo watch -w src -x 'test --locked --frozen --all-features -- --nocapture'; \
   else \
     cargo test --locked --frozen --all-features -- --nocapture; \
   fi
