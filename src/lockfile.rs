@@ -4,11 +4,11 @@ use std::{
   path::{Path, PathBuf},
 };
 
+use anyhow::Result;
 use itertools::Itertools;
 use strum::IntoEnumIterator;
 
 use crate::{
-  core::Result,
   errors::{to_error, Error},
   package_manager::PackageManagerKind,
   utils::{hash::Hashable, option::both_and_then},
@@ -47,7 +47,7 @@ impl Lockfile {
         .iter()
         .next()
         .map(|(kind, path)| (*kind, path.clone()))
-        .ok_or(Error::NoLockfile(base_dir)),
+        .ok_or(Error::NoLockfile(base_dir).into()),
       2 =>
       // priority to Bun if lockfiles for Bun and Yarn coexist
       // Bun has a option to generate yarn.lock (v1) as said in https://bun.sh/docs/install/lockfile
@@ -57,15 +57,13 @@ impl Lockfile {
           kinds.contains_key(&PackageManagerKind::Yarn).then_some(()),
         )
         .map(|((kind, path), _)| (*kind, path.clone()))
-        .ok_or(Error::MultipleLockfiles(
-          base_dir,
-          kinds.into_values().sorted().collect_vec(),
-        ))
+        .ok_or(
+          Error::MultipleLockfiles(base_dir, kinds.into_values().sorted().collect_vec()).into(),
+        )
       }
-      _ => Err(Error::MultipleLockfiles(
-        base_dir,
-        kinds.into_values().sorted().collect_vec(),
-      )),
+      _ => {
+        Err(Error::MultipleLockfiles(base_dir, kinds.into_values().sorted().collect_vec()).into())
+      }
     }
   }
 }
@@ -127,19 +125,20 @@ mod tests {
   );
 
   #[test]
-  fn test_new_nope() {
+  fn test_new_nope() -> Result<()> {
     let lockfile = Lockfile::new("tests/fixtures/lockfile/nope");
     assert_eq!(
-      lockfile.unwrap_err(),
+      lockfile.unwrap_err().downcast::<Error>()?,
       Error::NoLockfile(PathBuf::from("tests/fixtures/lockfile/nope"))
     );
+    Ok(())
   }
 
   #[test]
   fn test_new_multiple() {
     let lockfile = Lockfile::new("tests/fixtures/lockfile/multiple");
     assert_eq!(
-      lockfile.unwrap_err(),
+      lockfile.unwrap_err().downcast::<Error>().unwrap(),
       Error::MultipleLockfiles(
         PathBuf::from("tests/fixtures/lockfile/multiple"),
         [

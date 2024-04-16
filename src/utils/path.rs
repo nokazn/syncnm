@@ -1,15 +1,19 @@
 use std::{
   env::{current_dir, set_current_dir},
+  fmt::Display,
   io,
-  path::{Path, PathBuf},
+  path::{Component, Path, PathBuf},
 };
 
+use anyhow::Result;
+use itertools::Itertools;
 use path_clean::PathClean;
 
 #[cfg(test)]
 use regex::Regex;
+use serde::{Deserialize, Serialize};
 
-use crate::{core::Result, errors::Error};
+use crate::errors::Error;
 
 pub fn to_absolute_path(path: impl AsRef<Path>) -> Result<PathBuf> {
   let path = path.as_ref();
@@ -27,6 +31,55 @@ pub fn to_absolute_path(path: impl AsRef<Path>) -> Result<PathBuf> {
   Ok(PathClean::clean(&absolute_path))
 }
 
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Clone)]
+pub struct DirKey(pub String);
+
+impl Display for DirKey {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{}", self.0)
+  }
+}
+
+pub fn to_dir_key(path: impl AsRef<Path>) -> DirKey {
+  type ToDirComponent = Box<dyn FnMut(&Component<'_>) -> Option<String>>;
+  let mut to_dir_component: ToDirComponent = {
+    let home_dir = dirs::home_dir();
+    match home_dir {
+      Some(home_dir) => {
+        let to_os_ascii_lowercase = |c: Component<'_>| c.as_os_str().to_ascii_lowercase();
+        let home_components = home_dir
+          .components()
+          .map(to_os_ascii_lowercase)
+          .collect_vec();
+        Box::new(move |c: &Component<'_>| match c {
+          Component::Normal(p) => {
+            if home_components.contains(&to_os_ascii_lowercase(*c)) {
+              None
+            } else {
+              Some(p.to_string_lossy().to_string())
+            }
+          }
+          _ => None,
+        })
+      }
+      None => Box::new(|c: &Component<'_>| match c {
+        Component::Normal(p) => Some(p.to_string_lossy().to_string()),
+        _ => None,
+      }),
+    }
+  };
+  let path = {
+    let p = path.as_ref();
+    to_absolute_path(p).unwrap_or(p.to_path_buf())
+  };
+  DirKey(
+    path
+      .components()
+      .filter_map(|c| to_dir_component(&c))
+      .join("_"),
+  )
+}
+
 #[cfg(test)]
 pub fn clean_path_separator(path: impl AsRef<Path>) -> PathBuf {
   let path = path.as_ref().to_string_lossy().to_string();
@@ -40,8 +93,11 @@ pub fn clean_path_separator(path: impl AsRef<Path>) -> PathBuf {
   #[cfg(windows)]
   {
     // if this passes tests, this unwrap never fails
-    let r = Regex::new(r"(^|[^\\])/+").unwrap();
-    PathBuf::from(r.replace_all(&path, "${1}\\").to_string())
+    let separator = Regex::new(r"(^|[^\\])/+").unwrap();
+    let prefix = Regex::new(r"^\\{2}\?\\").unwrap();
+    let path = separator.replace_all(&path, "${1}\\");
+    let path = prefix.replace(&path, "");
+    PathBuf::from(path.to_string())
   }
 }
 
@@ -98,7 +154,8 @@ where
     Err(
       Error::NotAccessible(base_dir.as_ref().to_path_buf())
         .log_debug(&error)
-        .log_error(None),
+        .log_error(None)
+        .into(),
     )
   };
   let cwd = match current_dir() {
@@ -203,6 +260,45 @@ mod tests {
         base_dir: Some(tmp_dir.clone()),
         expected: tmp_dir.canonicalize().unwrap().join("foo"),
       }
+    },
+  );
+
+  struct ToDirKeyTestCase {
+    input: PathBuf,
+    expected: &'static str,
+  }
+
+  fn test_to_dir_key_each(case: &ToDirKeyTestCase) {
+    let dir_key = to_dir_key(&case.input).to_string();
+    if case.input.is_relative() {
+      assert!(dir_key.ends_with(case.expected));
+    } else {
+      assert_eq!(dir_key, case.expected);
+    }
+  }
+
+  test_each!(
+    test_to_dir_key,
+    test_to_dir_key_each,
+    "1" => &ToDirKeyTestCase {
+      input: dirs::home_dir().unwrap().join("a/b/c/d"),
+      expected: "a_b_c_d"
+    },
+    "2" => &ToDirKeyTestCase {
+      input: dirs::home_dir().unwrap().join("."),
+      expected: ""
+    },
+    "3" => &ToDirKeyTestCase {
+      input: PathBuf::from("a/b/c/d"),
+      expected: "a_b_c_d"
+    },
+    "4" => &ToDirKeyTestCase {
+      input: PathBuf::from("./a/b/c/d"),
+      expected: "a_b_c_d"
+    },
+    "5" => &ToDirKeyTestCase {
+      input: PathBuf::from("./a/b/c/../c/d"),
+      expected: "a_b_c_d"
     },
   );
 

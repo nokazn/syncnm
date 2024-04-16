@@ -3,9 +3,11 @@ use std::{
   path::{Path, PathBuf},
 };
 
+use anyhow::Result;
+
 use crate::{
-  core::Result,
-  errors::{to_error, Error, Paths},
+  errors::{to_error, Error},
+  utils::path::to_absolute_path,
 };
 
 pub fn exists_dir(dir: impl AsRef<Path>) -> Result<PathBuf> {
@@ -15,24 +17,28 @@ pub fn exists_dir(dir: impl AsRef<Path>) -> Result<PathBuf> {
     match &original {
       Ok(original) if original.is_dir() => original
         .canonicalize()
-        .map_err(|_| Error::NotAccessible(dir)),
-      Ok(_) => Err(Error::NotDir(dir)),
-      Err(_) => Err(Error::NotAccessible(dir)),
+        .map_err(|_| Error::NotAccessible(dir).into()),
+      Ok(_) => Err(Error::NotDir(dir).into()),
+      Err(_) => Err(Error::NotAccessible(dir).into()),
     }
   } else if dir.is_dir() {
-    dir.canonicalize().map_err(|_| Error::NotAccessible(dir))
+    dir
+      .canonicalize()
+      .map_err(|_| Error::NotAccessible(dir).into())
   } else {
-    Err(Error::NotDir(dir))
+    Err(Error::NotDir(dir).into())
   }
 }
 
-pub fn make_dir_if_not_exists(dir: impl AsRef<Path>) -> Result<()> {
-  fs::create_dir_all(dir).map_err(to_error)
+pub fn make_dir_if_not_exists(dir: impl AsRef<Path>) -> Result<PathBuf> {
+  fs::create_dir_all(&dir)
+    .map_err(to_error)
+    .and(to_absolute_path(dir).map_err(to_error))
 }
 
 pub fn rename(from: impl AsRef<Path>, to: impl AsRef<Path>) -> Result<()> {
   let to = to.as_ref().to_path_buf();
-  let parent = &to.parent().ok_or(Error::NoEntry(Paths::One(to.clone())))?;
+  let parent = &to.parent().ok_or(Error::NoEntry(vec![to.clone()]))?;
   make_dir_if_not_exists(parent)?;
   fs::remove_dir_all(&to).unwrap_or_default();
   fs::rename(&from, &to).map_err(to_error)
@@ -41,7 +47,7 @@ pub fn rename(from: impl AsRef<Path>, to: impl AsRef<Path>) -> Result<()> {
 #[cfg(unix)]
 pub fn create_symlink(from: impl AsRef<Path>, to: impl AsRef<Path>) -> Result<()> {
   let to = to.as_ref().to_path_buf();
-  let parent = &to.parent().ok_or(Error::NoEntry(Paths::One(to.clone())))?;
+  let parent = &to.parent().ok_or(Error::NoEntry(vec![to.clone()]))?;
   make_dir_if_not_exists(parent)?;
   fs::remove_dir_all(&to).unwrap_or_default();
   std::os::unix::fs::symlink(&from, &to).map_err(to_error)
@@ -50,7 +56,7 @@ pub fn create_symlink(from: impl AsRef<Path>, to: impl AsRef<Path>) -> Result<()
 #[cfg(windows)]
 pub fn create_symlink(from: impl AsRef<Path>, to: impl AsRef<Path>) -> Result<()> {
   let to = to.as_ref().to_path_buf();
-  let parent = &to.parent().ok_or(Error::NoEntry(Paths::One(to.clone())))?;
+  let parent = &to.parent().ok_or(Error::NoEntry(vec![to.clone()]))?;
   make_dir_if_not_exists(parent)?;
   fs::remove_dir_all(&to).unwrap_or_default();
   std::os::windows::fs::symlink_dir(&from, &to).map_err(to_error)
@@ -76,7 +82,7 @@ mod tests {
 
   struct ExistsDirTestCase {
     dir: &'static str,
-    expected: Result<PathBuf>,
+    expected: Result<PathBuf, Error>,
   }
 
   test_each_serial!(
@@ -96,7 +102,7 @@ mod tests {
             expected_original.canonicalize().unwrap()
           )
         },
-        Err(error) => assert_eq!(&result.unwrap_err(), error)
+        Err(error) => assert_eq!(result.unwrap_err().downcast_ref::<Error>().unwrap(), error)
       }
 
     }),
@@ -191,7 +197,7 @@ mod tests {
     });
 
     fs::remove_dir_all(&base_dir).unwrap();
-    assert_eq!(result, Ok(()));
+    assert!(result.is_ok());
   }
 
   // TODO* fix this test for windows
@@ -261,6 +267,6 @@ mod tests {
     });
 
     fs::remove_dir_all(&base_dir).unwrap();
-    assert_eq!(result, Ok(()));
+    assert!(result.is_ok());
   }
 }

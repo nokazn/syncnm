@@ -2,10 +2,7 @@ use std::path::PathBuf;
 
 use clap::{value_parser, Arg, Command};
 
-use crate::{
-  cache::DEFAULT_CACHE_DIR,
-  core::{self, APP_NAME},
-};
+use crate::core::{self, APP_NAME};
 
 const INSTALL_CMD: &str = "install";
 const RUN_CMD: &str = "run";
@@ -20,14 +17,19 @@ fn path_buf_arg(id: &'static str) -> Arg {
 
 pub fn run() {
   let base_dir_arg = path_buf_arg(BASE_DIR_ARG).help(format!(
-    "A path to a local project to install {APP_NAME} (current directory by default)"
+    "A path to a local project to install {APP_NAME} (the current directory by default)"
   ));
   let cache_dir_arg = path_buf_arg(CACHE_DIR_ARG)
     .long("cache-dir")
     .short('c')
-    .help(format!(
-      "A path to a local project to install ({DEFAULT_CACHE_DIR} by default) ",
-    ));
+    .help(
+      #[cfg(target_os = "linux")]
+      format!("A path to a cache store directory ($XDG_CACHE_HOME/{APP_NAME} or ~/.cache/{APP_NAME} by default) ",),
+      #[cfg(target_os = "macos")]
+      format!("A path to a cache store directory (~/Library/Caches/{APP_NAME} by default) ",),
+      #[cfg(target_os = "windows")]
+      format!("A path to a cache store directory (%LOCALAPPDATA%/{APP_NAME} or ~\\AppData\\Local\\{APP_NAME} by default) ",),
+    );
 
   let cli = Command::new(APP_NAME)
     .about("Sync node_modules when your local dependency list changes")
@@ -62,7 +64,7 @@ pub fn run() {
         .get_one::<PathBuf>(BASE_DIR_ARG)
         .map(PathBuf::from)
         .unwrap_or_default();
-      let cache_dir = args.get_one::<String>(CACHE_DIR_ARG).map(PathBuf::from);
+      let cache_dir = args.get_one::<PathBuf>(CACHE_DIR_ARG).map(PathBuf::from);
       let result = core::run(base_dir, cache_dir);
       dbg!(&result);
     }
