@@ -8,9 +8,6 @@ use crate::errors::Error;
 use crate::utils::path::to_dir_key;
 use crate::utils::{fs, hash::Hash};
 
-///
-/// -----------------------------------------------------------------------------
-///
 #[derive(Debug, PartialEq, Clone)]
 pub struct Cache {
   base_dir: PathBuf,
@@ -85,7 +82,7 @@ impl Cache {
         if current_hash_key.to_string() == key {
           return Ok(self.clone());
         }
-        // escape the current cache is exists
+        // escape the current cache if exists
         fs::rename(&self.target_dir, self.to_cache_path(&current_hash_key))
           .map_err(|error| error.context("Failed to save the old cache"))
           .unwrap_or(());
