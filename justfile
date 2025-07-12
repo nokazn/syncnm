@@ -42,3 +42,7 @@ test watch="":
 
 build:
   cargo build
+
+update:
+  cargo update
+  nix flake update
